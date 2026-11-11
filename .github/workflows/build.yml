@@ -1,0 +1,166 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.info.outputs.version }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Mono and msitools
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo rm -f /var/lib/man-db/auto-update
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends mono-devel wixl msitools
+
+      - name: Build PxeVice.exe and PxeVice.msi
+        run: |
+          chmod +x *.sh tests/*.sh winget/*.sh
+          ./package.sh
+
+      - name: Run tests
+        run: ./tests/run.sh
+
+      - name: Read version and product code
+        id: info
+        run: |
+          version=$(msiinfo export PxeVice.msi Property | awk -F'\t' '$1=="ProductVersion"{print $2}' | tr -d '\r')
+          code=$(msiinfo export PxeVice.msi Property | awk -F'\t' '$1=="ProductCode"{print $2}' | tr -d '\r')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "PxeVice $version, product code $code"
+
+      - name: Check that the release tag matches the version
+        if: github.event_name == 'release'
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$tag" != "${{ steps.info.outputs.version }}" ]; then
+            echo "::error::Release tag $GITHUB_REF_NAME does not match version ${{ steps.info.outputs.version }} in PxeVice.wxs"
+            exit 1
+          fi
+
+      - name: Write checksums
+        run: sha256sum PxeVice.exe PxeVice.msi > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: Attest build provenance
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            PxeVice.exe
+            PxeVice.msi
+
+      - name: Keep the build as an artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: PxeVice-${{ steps.info.outputs.version }}
+          path: |
+            PxeVice.exe
+            PxeVice.msi
+            SHA256SUMS.txt
+
+      - name: Attach files to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$GITHUB_REF_NAME" PxeVice.exe PxeVice.msi SHA256SUMS.txt --clobber
+          gh release view "$GITHUB_REF_NAME" --json body --jq .body | tr -d '\r' | awk '
+            { line = $0; sub(/[ \t]+$/, "", line) }
+            !seen && NF { seen = 1; if (line == "### Verify this download") { skip = 1; next } }
+            skip { if (line ~ /^### What.s new$/) skip = 0; next }
+            line == "### Deployment" || line == "### SHA256" { exit }
+            { print }
+          ' | awk 'NF { for (; blank > 0; blank--) print ""; print; found = 1; next } found { blank++ }' > release-notes.md
+          {
+            echo "### Verify this download"
+            echo
+            echo '```'
+            cat SHA256SUMS.txt
+            echo '```'
+            echo
+            echo '```powershell'
+            echo 'Get-FileHash .\PxeVice.msi'
+            echo "gh attestation verify .\\PxeVice.msi -R ${GITHUB_REPOSITORY}"
+            echo '```'
+            echo
+            echo "\`Get-FileHash\` should show the same SHA256 as above. \`gh attestation verify\` confirms that GitHub Actions built the file from this repository, at commit [${GITHUB_SHA::7}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})."
+            if grep -q '[^[:space:]]' release-notes.md; then
+              echo
+              echo "### What's new"
+              echo
+              cat release-notes.md
+            fi
+            echo
+            echo "### Deployment"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Product code | \`${{ steps.info.outputs.code }}\` |"
+            echo "| Install | \`msiexec /i PxeVice.msi /qn\` |"
+            echo "| Uninstall | \`msiexec /x ${{ steps.info.outputs.code }} /qn\` |"
+          } > notes.md
+          gh release edit "$GITHUB_REF_NAME" --notes-file notes.md
+
+      - name: Write winget manifests
+        if: github.event_name == 'release'
+        run: ./winget/manifests.sh "${{ steps.info.outputs.version }}" PxeVice.msi release-notes.md out/winget
+
+      - name: Keep the winget manifests
+        if: github.event_name == 'release'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: winget-${{ steps.info.outputs.version }}
+          path: out/winget
+
+  winget:
+    needs: build
+    if: github.event_name == 'release' && !github.event.release.prerelease
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Get the winget manifests
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: winget-${{ needs.build.outputs.version }}
+          path: winget
+
+      - name: Submit to winget
+        shell: pwsh
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          $manifest = Join-Path -Path $PWD -ChildPath "winget\manifests\d\DanielBaldissera\PxeVice\$env:VERSION"
+          if (-not $env:WINGET_TOKEN) {
+              Write-Output "::notice::The WINGET_TOKEN secret is not set, so nothing was submitted. Download the winget-$env:VERSION artifact and run: wingetcreate submit <folder>"
+              exit 0
+          }
+          $exe = Join-Path -Path $env:RUNNER_TEMP -ChildPath 'wingetcreate.exe'
+          Invoke-WebRequest -Uri 'https://github.com/microsoft/winget-create/releases/download/v1.12.13.0/wingetcreate.exe' -OutFile $exe
+          $hash = (Get-FileHash -Path $exe -Algorithm SHA256).Hash
+          if ($hash -ne '24042BD37915805615E6CF969AC57C6439124C3FE85823327F5F3FB24BD9FFEA') {
+              throw "wingetcreate.exe has an unexpected SHA256: $hash"
+          }
+          & $exe submit --token $env:WINGET_TOKEN --no-open $manifest
+          if ($LASTEXITCODE -ne 0) {
+              throw "wingetcreate failed with exit code $LASTEXITCODE."
+          }

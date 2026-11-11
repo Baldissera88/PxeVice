@@ -1,0 +1,10 @@
+# Shell scripts and the workflow run on Linux in GitHub Actions, so keep LF line endings even when committed from Windows.
+*.sh   text eol=lf
+*.yml  text eol=lf
+*.py   text eol=lf
+*.cs   text
+*.md   text
+*.wxs  text
+*.ps1  text
+*.ico  binary
+*.png  binary
