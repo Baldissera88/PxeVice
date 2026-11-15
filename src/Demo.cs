@@ -23,12 +23,14 @@ namespace PxeVice
             public DateTime Utc;
             public string Mac, Guid;
             public int Arch = 9;
+            // The PXE point that answered. Null is the first one.
+            public string Server;
+            public bool Written;
             public bool DuplicateSmbios;
             // Decided by what the site has at the time of the boot, unless set.
             public string Fixed;
         }
         readonly List<Boot> boots = new List<Boot>();
-        int written;
         int thread = 4100;
         // Seconds before a machine that was reset PXE boots again. 0 turns it off.
         public int NextBootSeconds = 8;
@@ -45,6 +47,8 @@ namespace PxeVice
             info.SqlServer = "CM01.contoso.local";
             info.Database = "CM_P01";
             info.PxeServers.Add("DP01.contoso.local");
+            info.PxeServers.Add("DP02.contoso.local");
+            info.FoundPxeServers.AddRange(info.PxeServers);
 
             // A task sequence on an unknown computer failed before it got a name: a PXE flag and an Unknown record.
             Flag(0, "00:15:5D:23:21:3B", "74B241D3-5E0A-4380-B552-F350682ABD84", null, "P0120006", now.AddMinutes(-7));
@@ -83,6 +87,11 @@ namespace PxeVice
             pp.SupportsUnknown = true;
             pp.Active = true;
             Points.Add(pp);
+            PxePoint p2 = new PxePoint();
+            p2.Server = "DP02.contoso.local";
+            p2.SupportsUnknown = true;
+            p2.Active = true;
+            Points.Add(p2);
 
             // SMSPXE.log: what these machines got when they last PXE booted.
             Pxe(now.AddMinutes(-36), "3C:52:82:4A:91:07", "4C4C4544-0052-3410-8048-B4C04F4A3132", "offer:P0120009:1:2046820353");
@@ -91,7 +100,7 @@ namespace PxeVice
             Pxe(now.AddMinutes(-20), "F8:75:A4:0B:7E:21", "36A2E5C1-8F44-4D5B-9C1E-2B7A90D3E415", "none:16777301");
             Boot dup = Pxe(now.AddMinutes(-12), "D8:BB:C1:0F:33:72", "03000200-0400-0500-0006-000700080009", "none:16777350");
             dup.DuplicateSmbios = true;
-            Pxe(now.AddMinutes(-50), "70:B5:E8:21:9C:44", "5D0E8B13-77A2-4C61-9F08-1B3C5E7D9A24", "none:16777360");
+            Pxe(now.AddMinutes(-50), "70:B5:E8:21:9C:44", "5D0E8B13-77A2-4C61-9F08-1B3C5E7D9A24", "none:16777360").Server = "DP02.contoso.local";
             Pxe(now.AddMinutes(-95), "9C:7B:EF:44:10:5A", "B91E0C22-5A47-4E88-A0C3-6D2F17E84B90", "offer:P0120006:0:2046820353");
             boots.Sort(delegate (Boot a, Boot b) { return a.Utc.CompareTo(b.Utc); });
         }
@@ -372,7 +381,13 @@ namespace PxeVice
             lock (boots)
             {
                 boots.Sort(delegate (Boot a, Boot b) { return a.Utc.CompareTo(b.Utc); });
-                while (written < boots.Count && boots[written].Utc <= DateTime.UtcNow) text.Append(Write(boots[written++]));
+                foreach (Boot b in boots)
+                {
+                    if (b.Written || b.Utc > DateTime.UtcNow) continue;
+                    if (!Checker.SameServer(b.Server ?? info.PxeServers[0], server)) continue;
+                    b.Written = true;
+                    text.Append(Write(b));
+                }
             }
             int used, ln = 0;
             return CmLog.Parse(text.ToString(), @"\\" + server + @"\SMS_DP$\sms\logs\SMSPXE.log", ref ln, true, null, out used);

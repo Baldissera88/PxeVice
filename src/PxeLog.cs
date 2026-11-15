@@ -275,30 +275,73 @@ namespace PxeVice
     {
         // Lines kept per server. Older lines are dropped first.
         public const int MaxLines = 60000;
+        // The servers are read on their own threads, so everything here is locked.
+        readonly object gate = new object();
         readonly Dictionary<string, List<LogLine>> lines = new Dictionary<string, List<LogLine>>(StringComparer.OrdinalIgnoreCase);
-        public readonly Dictionary<string, string> Notes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        readonly Dictionary<string, string> notes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        readonly Dictionary<string, bool> reading = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
         public void Add(string server, IList<LogLine> more)
         {
-            List<LogLine> l;
-            if (!lines.TryGetValue(server, out l))
+            lock (gate)
             {
-                l = new List<LogLine>();
-                lines[server] = l;
+                List<LogLine> l;
+                if (!lines.TryGetValue(server, out l))
+                {
+                    l = new List<LogLine>();
+                    lines[server] = l;
+                }
+                l.AddRange(more);
+                if (l.Count > MaxLines) l.RemoveRange(0, l.Count - MaxLines);
             }
-            l.AddRange(more);
-            if (l.Count > MaxLines) l.RemoveRange(0, l.Count - MaxLines);
+        }
+
+        public void Note(string server, string note)
+        {
+            lock (gate)
+            {
+                if (note == null) notes.Remove(server);
+                else notes[server] = note;
+            }
+        }
+
+        public List<string> NoteList()
+        {
+            lock (gate) return new List<string>(notes.Values);
+        }
+
+        // Marks a server as being read. False when an earlier read of it has not finished.
+        public bool Begin(string server)
+        {
+            lock (gate)
+            {
+                if (reading.ContainsKey(server)) return false;
+                reading[server] = true;
+                return true;
+            }
+        }
+
+        public void End(string server)
+        {
+            lock (gate) reading.Remove(server);
+        }
+
+        public List<string> Busy()
+        {
+            lock (gate) return new List<string>(reading.Keys);
         }
 
         public int LineCount
         {
-            get { int n = 0; foreach (List<LogLine> l in lines.Values) n += l.Count; return n; }
+            get { lock (gate) { int n = 0; foreach (List<LogLine> l in lines.Values) n += l.Count; return n; } }
         }
 
         public List<PxeRequest> Requests()
         {
+            List<KeyValuePair<string, List<LogLine>>> copy = new List<KeyValuePair<string, List<LogLine>>>();
+            lock (gate) foreach (KeyValuePair<string, List<LogLine>> kv in lines) copy.Add(new KeyValuePair<string, List<LogLine>>(kv.Key, new List<LogLine>(kv.Value)));
             List<PxeRequest> all = new List<PxeRequest>();
-            foreach (KeyValuePair<string, List<LogLine>> kv in lines) all.AddRange(PxeLog.Requests(kv.Key, kv.Value));
+            foreach (KeyValuePair<string, List<LogLine>> kv in copy) all.AddRange(PxeLog.Requests(kv.Key, kv.Value));
             all.Sort(delegate (PxeRequest a, PxeRequest b)
             {
                 DateTime x = a.Utc ?? DateTime.MinValue, y = b.Utc ?? DateTime.MinValue;

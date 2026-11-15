@@ -18,11 +18,14 @@ namespace PxeVice
         public string Database;
         public string PxeServers;
         public string Name;
+        // Find every PXE distribution point from the site. PxeServers are then added to them; without it only PxeServers are used.
+        public bool FindPxeServers = true;
 
         public static SiteOptions FromPrefs()
         {
             SiteOptions o = new SiteOptions();
             o.Name = Prefs.Get("SiteName", null);
+            o.FindPxeServers = Prefs.GetBool("FindPxeServers", true);
             o.SiteServer = Prefs.Get("SiteServer", null);
             o.SqlServer = Prefs.Get("SqlServer", null);
             o.Database = Prefs.Get("Database", null);
@@ -160,9 +163,12 @@ namespace PxeVice
         public string SqlServer = "";
         public string Database = "";
         public readonly List<string> PxeServers = new List<string>();
+        // The PXE distribution points the site has, before the ones given in Settings are added.
+        public readonly List<string> FoundPxeServers = new List<string>();
         public readonly List<string> Notes = new List<string>();
         public bool Demo;
         public string Name;
+        public bool FindPxeServers = true;
 
         public string Describe()
         {
@@ -178,7 +184,8 @@ namespace PxeVice
             if (RunAs.Account != null) b.Append("as ").Append(RunAs.Account).Append(sep);
             b.Append(SiteServer).Append(sep).Append("site ").Append(SiteCode);
             b.Append(sep).Append(Database).Append(" on ").Append(SqlServer);
-            if (PxeServers.Count > 0) b.Append(sep).Append("PXE: ").Append(string.Join(", ", PxeServers.ToArray()));
+            if (PxeServers.Count > 3) b.Append(sep).Append("PXE: ").Append(PxeServers.Count).Append(" distribution points");
+            else if (PxeServers.Count > 0) b.Append(sep).Append("PXE: ").Append(string.Join(", ", PxeServers.ToArray()));
             return b.ToString();
         }
     }
@@ -230,6 +237,7 @@ namespace PxeVice
             string server = string.IsNullOrEmpty(o.SiteServer) ? Environment.MachineName : o.SiteServer.Trim();
             info.SiteServer = server;
             info.Name = o.Name;
+            info.FindPxeServers = o.FindPxeServers;
 
             ManagementScope root = Scope(server, @"root\SMS");
             root.Connect();
@@ -274,22 +282,47 @@ namespace PxeVice
             if (RunAs.Account != null && (RunAs.IsLocal(info.Provider) || RunAs.IsLocal(info.SqlServer.Split('\\')[0])))
                 info.Notes.Add("PxeVice runs on the site server, so it connects with your own account, not " + RunAs.Account + ". Run it from another PC to use the service account.");
 
-            if (!string.IsNullOrEmpty(o.PxeServers))
+            List<string> given = SplitServers(o.PxeServers);
+            if (o.FindPxeServers || given.Count == 0)
             {
-                foreach (string s in o.PxeServers.Split(new char[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries)) info.PxeServers.Add(s.Trim());
-            }
-            else
-            {
+                List<string> found = new List<string>();
+                string error = null;
                 try
                 {
                     foreach (ManagementObject d in Query(scope, "SELECT ServerName FROM SMS_DistributionPointInfo WHERE IsPXE = TRUE"))
-                    {
-                        string name = Convert.ToString(d["ServerName"]);
-                        if (name.Length > 0 && !info.PxeServers.Contains(name)) info.PxeServers.Add(name);
-                    }
+                        AddServer(found, Convert.ToString(d["ServerName"]));
                 }
-                catch (Exception ex) { info.Notes.Add("The PXE distribution points were not found: " + ex.Message); }
+                catch (Exception ex) { error = ex.Message; }
+                // The site's role list as well, which also has PXE points that do not report to SMS_DistributionPointInfo yet.
+                try { foreach (PxePoint p in PxePoints()) AddServer(found, p.Server); }
+                catch (Exception ex) { if (found.Count == 0) error = error ?? ex.Message; }
+                if (found.Count == 0 && error != null) info.Notes.Add("The PXE distribution points were not found: " + error);
+                found.Sort(StringComparer.OrdinalIgnoreCase);
+                foreach (string s in found) info.FoundPxeServers.Add(s);
+                foreach (string s in found) AddServer(info.PxeServers, s);
             }
+            foreach (string s in given) AddServer(info.PxeServers, s);
+            // With many PXE points, less of each log is read when PxeVice connects: 32 MB in all, at least 1 MB each.
+            if (info.PxeServers.Count > 4) FirstRead = Math.Max(1L * 1024 * 1024, 32L * 1024 * 1024 / info.PxeServers.Count);
+        }
+
+        public static List<string> SplitServers(string list)
+        {
+            List<string> l = new List<string>();
+            if (string.IsNullOrEmpty(list)) return l;
+            foreach (string s in list.Split(new char[] { ',', ';', ' ', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)) AddServer(l, s);
+            return l;
+        }
+
+        // Adds a server once: DP01 and DP01.contoso.local are the same server, and the full name is kept.
+        public static void AddServer(List<string> list, string server)
+        {
+            if (string.IsNullOrEmpty(server)) return;
+            string s = server.Trim().TrimStart('\\').TrimEnd('\\');
+            if (s.Length == 0) return;
+            int i = list.FindIndex(delegate (string x) { return Checker.SameServer(x, s); });
+            if (i < 0) list.Add(s);
+            else if (s.Length > list[i].Length) list[i] = s;
         }
 
         static ManagementScope Scope(string server, string ns)
@@ -573,7 +606,7 @@ namespace PxeVice
         // ---------- SMSPXE.log ----------
 
         // How much of SMSPXE.log and SMSPXE.lo_ is read the first time.
-        public const long FirstRead = 8L * 1024 * 1024;
+        public long FirstRead = 8L * 1024 * 1024;
         readonly Dictionary<string, LogTail> tails = new Dictionary<string, LogTail>(StringComparer.OrdinalIgnoreCase);
 
         public List<LogLine> ReadPxeLog(string server, out string note)
@@ -581,7 +614,9 @@ namespace PxeVice
             note = null;
             List<LogLine> lines = new List<LogLine>();
             LogTail tail;
-            if (!tails.TryGetValue(server, out tail))
+            bool have;
+            lock (tails) have = tails.TryGetValue(server, out tail);
+            if (!have)
             {
                 string path = PxeLog(server);
                 if (path == null)
@@ -595,14 +630,14 @@ namespace PxeVice
                     if (File.Exists(old))
                     {
                         LogTail o = new LogTail(old);
-                        o.MaxRead = FirstRead;
+                        o.MaxRead = FirstRead / 2;
                         lines.AddRange(o.Read());
                     }
                 }
                 catch (Exception) { }
                 tail = new LogTail(path);
                 tail.MaxRead = FirstRead;
-                tails[server] = tail;
+                lock (tails) tails[server] = tail;
             }
             lines.AddRange(tail.Read());
             note = tail.Note;

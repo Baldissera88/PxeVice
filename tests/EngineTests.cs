@@ -192,10 +192,10 @@ namespace PxeVice.Tests
             ResetOptions o = new ResetOptions();
             o.RestartPxeService = true;
             Plan p = Engine.BuildPlan(site, new List<Machine>(new Machine[] { m }), o);
-            T.Equal(1, p.Count(StepKind.RestartService), "restart step added");
+            T.Equal(2, p.Count(StepKind.RestartService), "restart step added for each PXE point");
             T.Equal(StepKind.RestartService, p.Steps[p.Steps.Count - 1].Kind, "restart is last");
             Engine.Execute(site, p, null);
-            T.Equal(1, site.Restarted.Count, "service restarted");
+            T.Equal(2, site.Restarted.Count, "service restarted on each PXE point");
         }
 
         static void NothingLeft()

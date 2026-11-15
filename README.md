@@ -19,7 +19,7 @@ Get `PxeVice.msi` or the portable `PxeVice.exe` from the [latest release](https:
 | For | What is needed |
 |---|---|
 | Running PxeVice | Windows 10 or 11, or Windows Server, with .NET Framework 4.5 or later. No install needed |
-| The site | Network access and remote WMI to the SMS Provider. PxeVice finds the site code, the site database and the PXE distribution points from there |
+| The site | Network access and remote WMI to the SMS Provider. PxeVice finds the site code, the site database and every PXE distribution point from there |
 | Reading | A role in Configuration Manager that can read devices, collections, deployments, task sequences, content status and the site's distribution points, such as Read-only Analyst |
 | The site database | `SELECT` on `v_R_System`, `v_Advertisement` and `v_Package`, and `SELECT` on `LastPXEAdvertisement`, with Windows authentication |
 | PXE boots | Read access to SMSPXE.log on the PXE distribution points, through `SMS_DP$`, the site's share or the administrative share |
@@ -85,6 +85,10 @@ Many machines can PXE boot with the same USB network adapter, so a MAC address i
 ## Watch
 
 **Watch** (Ctrl+W) reads the site and the new lines of SMSPXE.log every 10 seconds, and says in the status bar when a PXE boot comes in. The taskbar button flashes when PxeVice is in the background. When it connects, PxeVice reads up to 8 MB of SMSPXE.log and the rolled-over SMSPXE.lo_; after that only new lines.
+
+## PXE distribution points
+
+PxeVice finds every distribution point with PXE turned on from the site, and reads SMSPXE.log on all of them at the same time, so a slow or unreachable server does not hold up the rest: its lines come with a later read. With more than four, less of each log is read when PxeVice connects, 32 MB in all and at least 1 MB each. Settings lists the ones found. **More PXE distribution points** adds servers the site does not list; turn off **Find the PXE distribution points from the site** to use only the servers you give.
 
 ## Service account
 

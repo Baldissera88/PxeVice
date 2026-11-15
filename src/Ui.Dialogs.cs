@@ -197,7 +197,20 @@ namespace PxeVice
         public event EventHandler ThemeChanged;
         public bool SiteChanged;
         public bool RestartWithAccount;
+        List<string> found;
 
+        string FoundText()
+        {
+            string what = "Every distribution point with PXE turned on, from the site. PxeVice reads SMSPXE.log on all of them at the same time.";
+            if (found == null) return what;
+            if (found.Count == 0) return what + " None was found on this site.";
+            return what + " Found " + found.Count + ": " + string.Join(", ", found.ToArray()) + ".";
+        }
+
+        static string PxeDesc(bool find)
+        {
+            return find ? "Added to the ones found, such as a server the site does not list. Separate several with commas." : "PxeVice uses only these. Separate several with commas.";
+        }
         static string AccountState()
         {
             string now = RunAs.Account != null ? "PxeVice runs with " + RunAs.Account + " on the network now. " : "PxeVice runs with your own account now. ";
@@ -226,7 +239,21 @@ namespace PxeVice
             Add(Field(Glyphs3.Server, "Site server", "The server with the SMS Provider. Leave it empty to use this computer.", "SiteServer", info != null ? info.SiteServer : null));
             Add(Field(Glyphs3.Server, "SQL Server", "Found from the site when empty. For a named instance, use SERVER\\INSTANCE.", "SqlServer", info != null ? info.SqlServer : null));
             Add(Field(Glyphs2.Code, "Site database", "Found from the site when empty, such as CM_P01.", "Database", info != null ? info.Database : null));
-            Add(Field(Glyphs3.Network, "PXE distribution points", "Where SMSPXE.log is read and the PXE service is restarted. Separate several with commas. Found from the site when empty.", "PxeServers", info != null && info.PxeServers.Count > 0 ? string.Join(", ", info.PxeServers.ToArray()) : null));
+            Toggle find = new Toggle();
+            find.On = Prefs.GetBool("FindPxeServers", true);
+            SettingRow pxeRow = null;
+            find.Changed += Safe.Wrap(delegate
+            {
+                Prefs.SetBool("FindPxeServers", find.On);
+                SiteChanged = true;
+                pxeRow.Title = find.On ? "More PXE distribution points" : "Only these PXE distribution points";
+                pxeRow.Desc = PxeDesc(find.On);
+                Relayout();
+            });
+            found = info == null ? null : info.FoundPxeServers;
+            Add(new SettingRow(Glyphs3.Network, "Find the PXE distribution points from the site", FoundText(), find));
+            pxeRow = Field(Glyphs3.Network, find.On ? "More PXE distribution points" : "Only these PXE distribution points", PxeDesc(find.On), "PxeServers", null);
+            Add(pxeRow);
             Add(Field(Glyphs.Log, "SMSPXE.log", "Only when PxeVice does not find it. <server> stands for each PXE distribution point, such as \\\\<server>\\D$\\SMS\\Logs\\SMSPXE.log.", "PxeLogPath", null));
 
             Add(new SectionTitle("Service account"));

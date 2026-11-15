@@ -5,6 +5,7 @@ namespace PxeVice
     using System.Globalization;
     using System.IO;
     using System.Text;
+    using System.Threading;
 
     public sealed class ResetOptions
     {
@@ -51,20 +52,9 @@ namespace PxeVice
             d.UnknownRecords = site.UnknownRecords();
             if (store != null)
             {
-                foreach (string server in site.Info.PxeServers)
-                {
-                    try
-                    {
-                        string note;
-                        List<LogLine> lines = site.ReadPxeLog(server, out note);
-                        store.Add(server, lines);
-                        if (note != null) store.Notes[server] = note;
-                        else store.Notes.Remove(server);
-                    }
-                    catch (Exception ex) { store.Notes[server] = "SMSPXE.log on " + server + " could not be read: " + ex.Message; }
-                }
+                ReadLogs(site, store);
                 d.Requests = store.Requests();
-                foreach (string n in store.Notes.Values) d.Notes.Add(n);
+                foreach (string n in store.NoteList()) d.Notes.Add(n);
             }
             List<string> ids = new List<string>();
             foreach (PxeFlag f in d.Flags) if (!string.IsNullOrEmpty(f.DeploymentId) && !ids.Contains(f.DeploymentId)) ids.Add(f.DeploymentId);
@@ -82,6 +72,43 @@ namespace PxeVice
             }
             d.ReadUtc = DateTime.UtcNow;
             return d;
+        }
+
+        // How long one read waits for SMSPXE.log on the PXE points. A server that is slower is read on in the background,
+        // and its lines come with a later read.
+        public static TimeSpan LogWait = TimeSpan.FromSeconds(20);
+
+        // Reads SMSPXE.log on every PXE point at the same time, so a slow or unreachable server does not hold up the rest.
+        static void ReadLogs(ISite site, PxeLogStore store)
+        {
+            List<Thread> threads = new List<Thread>();
+            foreach (string s in site.Info.PxeServers)
+            {
+                string server = s;
+                if (!store.Begin(server)) continue;
+                Thread t = new Thread(delegate ()
+                {
+                    try
+                    {
+                        string note;
+                        List<LogLine> lines = site.ReadPxeLog(server, out note);
+                        store.Add(server, lines);
+                        store.Note(server, note);
+                    }
+                    catch (Exception ex) { store.Note(server, "SMSPXE.log on " + server + " could not be read: " + ex.Message); }
+                    finally { store.End(server); }
+                });
+                t.IsBackground = true;
+                t.Start();
+                threads.Add(t);
+            }
+            DateTime until = DateTime.UtcNow + LogWait;
+            foreach (Thread t in threads)
+            {
+                TimeSpan left = until - DateTime.UtcNow;
+                if (left <= TimeSpan.Zero || !t.Join(left)) continue;
+            }
+            foreach (string server in store.Busy()) store.Note(server, "SMSPXE.log on " + server + " is slow to answer. Its lines come with a later read.");
         }
 
         public static List<Machine> Merge(List<PxeFlag> flags, List<DeviceRecord> devices)

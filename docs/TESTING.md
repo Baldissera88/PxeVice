@@ -14,6 +14,9 @@ A checklist for checking PxeVice against a real Configuration Manager site. Use 
 - [ ] PxeVice on the site server connects without Settings, and the subtitle shows the site code, the site database and the PXE distribution points
 - [ ] On another PC, with the site server in Settings, it connects the same way
 - [ ] The PXE boots tab shows boots from SMSPXE.log. When it does not, the status bar says why, and SMSPXE.log in Settings fixes it
+- [ ] Settings lists every PXE distribution point of the site, and the PXE boots tab has boots from all of them
+- [ ] A server in **More PXE distribution points** is added to the ones found. With **Find the PXE distribution points from the site** off, only the servers given are used
+- [ ] With one PXE distribution point turned off, the others are still read, and the status bar says the slow one comes later
 - [ ] **SMSPXE.log** opens the log in LogVice
 
 ## PXE boots

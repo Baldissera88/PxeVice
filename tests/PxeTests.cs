@@ -22,6 +22,26 @@ namespace PxeVice.Tests
             CheckUnknownSupportAndBootImage();
             NextBootAfterReset();
             Nal();
+            Servers();
+            TwoPoints();
+        }
+
+        static void Servers()
+        {
+            List<string> l = LiveSite.SplitServers("DP01, dp01.contoso.local;DP02  \\\\DP03.contoso.local\\");
+            T.Equal(3, l.Count, "servers: short and full names count once");
+            T.Equal("dp01.contoso.local", l[0], "servers: the full name is kept");
+            T.Equal("DP03.contoso.local", l[2], "servers: backslashes removed");
+            T.Equal(0, LiveSite.SplitServers(null).Count, "no servers");
+        }
+
+        static void TwoPoints()
+        {
+            DemoSite site = new DemoSite(Now);
+            SiteData d = ReadDemo(site);
+            PxeRequest kiosk = d.Requests.Find(delegate (PxeRequest r) { return r.MacAddress == "70:B5:E8:21:9C:44"; });
+            T.Equal("DP02.contoso.local", kiosk == null ? null : kiosk.Server, "a boot on the second PXE point is read");
+            T.Equal(7, d.Requests.Count, "every boot is read once over two PXE points");
         }
 
         static string L(string text, string time, string thread)

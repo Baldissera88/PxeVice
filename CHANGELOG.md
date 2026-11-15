@@ -9,6 +9,8 @@
 - The activity log, the Activity tab and reports say both who made a change and the account it was made with, such as `CONTOSO\supporter as CONTOSO\svc-pxevice`
 - The subtitle shows the account PxeVice runs with, and a failed sign-in says to check its password
 - Run on the site server itself, PxeVice says that it connects with your own account, since the service account is only used over the network
+- **Every PXE distribution point**: PxeVice finds all distribution points with PXE turned on from the site, also when you add servers in Settings. **Find the PXE distribution points from the site** can be turned off to use only the servers you give, and Settings lists the ones found
+- SMSPXE.log is read on all PXE distribution points at the same time, so a slow or unreachable server does not hold up the rest. With more than four, less of each log is read when PxeVice connects
 
 ## PxeVice 0.2.0
 
