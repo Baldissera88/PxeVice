@@ -36,7 +36,7 @@ if (-not (Test-Path -Path $csc)) {
 $cscArgs = @(
     '/nologo', '/target:winexe', '/platform:anycpu', '/optimize+', '/langversion:5',
     '/reference:System.dll', '/reference:System.Core.dll', '/reference:System.Xml.dll',
-    '/reference:System.Data.dll', '/reference:System.Management.dll', '/reference:System.ServiceProcess.dll', '/reference:System.Drawing.dll', '/reference:System.Windows.Forms.dll',
+    '/reference:System.Data.dll', '/reference:System.Management.dll', '/reference:System.Security.dll', '/reference:System.ServiceProcess.dll', '/reference:System.Drawing.dll', '/reference:System.Windows.Forms.dll',
     '/win32icon:PxeVice.ico', '/resource:PxeVice.ico,PxeVice.ico', '/out:PxeVice.exe'
 ) + $sources
 

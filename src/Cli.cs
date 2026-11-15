@@ -19,7 +19,11 @@ namespace PxeVice
 
         public static string UserName
         {
-            get { return Environment.UserDomainName + "\\" + Environment.UserName; }
+            get
+            {
+                string me = Environment.UserDomainName + "\\" + Environment.UserName;
+                return RunAs.Account == null ? me : me + " as " + RunAs.Account;
+            }
         }
 
         public static ISite Connect(bool demo, SiteOptions o)

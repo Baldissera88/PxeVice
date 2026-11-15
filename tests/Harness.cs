@@ -29,6 +29,7 @@ namespace PxeVice.Tests
             ActivityLog.Enabled = false;
             EngineTests.Run();
             PxeTests.Run();
+            RunAsTests.Run();
             Console.WriteLine(T.Passed + " passed, " + T.Failed + " failed");
             return T.Failed == 0 ? 0 : 1;
         }

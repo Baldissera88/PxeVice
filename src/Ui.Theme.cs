@@ -307,4 +307,34 @@ namespace PxeVice
             catch (Exception) { }
         }
     }
+
+    // A value kept in HKCU\Software\PxeVice, encrypted for the Windows user with DPAPI.
+    public static class Secret
+    {
+        public static void Save(string name, string value)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(value))
+                {
+                    Prefs.Set(name, null);
+                    return;
+                }
+                byte[] enc = System.Security.Cryptography.ProtectedData.Protect(System.Text.Encoding.UTF8.GetBytes(value), null, System.Security.Cryptography.DataProtectionScope.CurrentUser);
+                Prefs.Set(name, System.Convert.ToBase64String(enc));
+            }
+            catch (System.Exception) { }
+        }
+
+        public static string Load(string name)
+        {
+            try
+            {
+                string v = Prefs.Get(name, "");
+                if (string.IsNullOrEmpty(v)) return "";
+                return System.Text.Encoding.UTF8.GetString(System.Security.Cryptography.ProtectedData.Unprotect(System.Convert.FromBase64String(v), null, System.Security.Cryptography.DataProtectionScope.CurrentUser));
+            }
+            catch (System.Exception) { return ""; }
+        }
+    }
 }

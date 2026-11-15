@@ -48,6 +48,15 @@ A checklist for checking PxeVice against a real Configuration Manager site. Use 
 
 - [ ] PXE boot two virtual machines with the same MAC address and different SMBIOS GUIDs. Resetting one of them leaves the other's PXE flag
 
+## Service account
+
+- [ ] With an account in Settings, **Start with it now** asks for the password and starts PxeVice again. The subtitle says `as <account>`
+- [ ] With a supporter account that has no rights in Configuration Manager, PxeVice reads the site and SMSPXE.log through the service account
+- [ ] A reset with the service account writes `<supporter> as <account>` in the activity log
+- [ ] A wrong password shows as a failed connection with a hint to check it
+- [ ] With **Remember the password**, PxeVice starts with the account without asking. **Forget the password** makes it ask again
+- [ ] On the site server, PxeVice says it connects with your own account
+
 ## Sites
 
 - [ ] **Site > Save this site as** saves the site, and **Site** switches between two saved sites

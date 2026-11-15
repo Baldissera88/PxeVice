@@ -296,7 +296,7 @@ namespace PxeVice
         public static List<Activity> Execute(ISite site, Plan plan, Action<Activity> progress)
         {
             List<Activity> done = new List<Activity>();
-            string user = Environment.UserDomainName + "\\" + Environment.UserName;
+            string user = Cli.UserName;
             foreach (Step s in plan.Steps)
             {
                 Activity a = new Activity();

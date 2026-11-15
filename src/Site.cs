@@ -175,6 +175,7 @@ namespace PxeVice
             StringBuilder b = new StringBuilder();
             if (Demo) b.Append("Demo data").Append(sep);
             else if (!string.IsNullOrEmpty(Name)) b.Append(Name).Append(sep);
+            if (RunAs.Account != null) b.Append("as ").Append(RunAs.Account).Append(sep);
             b.Append(SiteServer).Append(sep).Append("site ").Append(SiteCode);
             b.Append(sep).Append(Database).Append(" on ").Append(SqlServer);
             if (PxeServers.Count > 0) b.Append(sep).Append("PXE: ").Append(string.Join(", ", PxeServers.ToArray()));
@@ -269,6 +270,9 @@ namespace PxeVice
             }
             if (string.IsNullOrEmpty(info.SqlServer)) info.SqlServer = server;
             if (string.IsNullOrEmpty(info.Database)) info.Database = "CM_" + info.SiteCode;
+            // The service account is used for the network only. On the site server itself, the connections are local.
+            if (RunAs.Account != null && (RunAs.IsLocal(info.Provider) || RunAs.IsLocal(info.SqlServer.Split('\\')[0])))
+                info.Notes.Add("PxeVice runs on the site server, so it connects with your own account, not " + RunAs.Account + ". Run it from another PC to use the service account.");
 
             if (!string.IsNullOrEmpty(o.PxeServers))
             {

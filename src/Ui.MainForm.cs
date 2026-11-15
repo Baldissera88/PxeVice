@@ -39,6 +39,8 @@ namespace PxeVice
         readonly List<Awaited> awaiting = new List<Awaited>();
 
         bool watching;
+        // Set in Settings: close and start again with the service account.
+        public bool RestartWithAccount;
         readonly System.Windows.Forms.Timer watchTimer = new System.Windows.Forms.Timer();
 
         readonly BusyBar busyBar = new BusyBar();
@@ -663,7 +665,9 @@ namespace PxeVice
                 if (err != null)
                 {
                     string where = connectFailed ? "Could not connect to " + (Prefs.Get("SiteServer", null) ?? Environment.MachineName) : "Could not read " + (s != null ? s.Info.Database + " on " + s.Info.SqlServer : "the site");
-                    Banner(where + ": " + err.Message, true, "Settings");
+                    if (RunAs.Account != null) where += " as " + RunAs.Account;
+                    string hint = RunAs.Account != null ? " If the password of the service account is wrong, forget it in Settings and start with it again." : "";
+                    Banner(where + ": " + err.Message + hint, true, "Settings");
                     Status("Reading failed: " + err.Message);
                 }
                 else
@@ -1681,6 +1685,17 @@ namespace PxeVice
                     ApplyTheme();
                 };
                 d.ShowDialog(this);
+                if (d.RestartWithAccount && !demo)
+                {
+                    if (string.IsNullOrEmpty(Prefs.Get(RunAs.UserPref, null)))
+                    {
+                        Status("Write the service account in Settings first.");
+                        return;
+                    }
+                    RestartWithAccount = true;
+                    Close();
+                    return;
+                }
                 Engine.RequestWindow = TimeSpan.FromHours(Math.Max(1, Prefs.GetInt("RequestHours", 24)));
                 if (watching) watchTimer.Interval = Math.Max(3, Prefs.GetInt("WatchSeconds", 10)) * 1000;
                 requestSignature = "";

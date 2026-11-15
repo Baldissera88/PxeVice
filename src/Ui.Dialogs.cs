@@ -196,6 +196,14 @@ namespace PxeVice
     {
         public event EventHandler ThemeChanged;
         public bool SiteChanged;
+        public bool RestartWithAccount;
+
+        static string AccountState()
+        {
+            string now = RunAs.Account != null ? "PxeVice runs with " + RunAs.Account + " on the network now. " : "PxeVice runs with your own account now. ";
+            if (string.IsNullOrEmpty(Prefs.Get(RunAs.UserPref, null))) return now + "Write an account above to use it.";
+            return now + (Secret.Load(RunAs.PasswordPref).Length > 0 ? "The password is remembered for your Windows user, encrypted with DPAPI." : "PxeVice asks for the password when it starts.") + " Start with it now restarts PxeVice with the account.";
+        }
         readonly SettingRow logViceRow;
 
         public SettingsDialog(Theme t, SiteInfo info) : base("PxeVice settings", t)
@@ -220,6 +228,37 @@ namespace PxeVice
             Add(Field(Glyphs2.Code, "Site database", "Found from the site when empty, such as CM_P01.", "Database", info != null ? info.Database : null));
             Add(Field(Glyphs3.Network, "PXE distribution points", "Where SMSPXE.log is read and the PXE service is restarted. Separate several with commas. Found from the site when empty.", "PxeServers", info != null && info.PxeServers.Count > 0 ? string.Join(", ", info.PxeServers.ToArray()) : null));
             Add(Field(Glyphs.Log, "SMSPXE.log", "Only when PxeVice does not find it. <server> stands for each PXE distribution point, such as \\\\<server>\\D$\\SMS\\Logs\\SMSPXE.log.", "PxeLogPath", null));
+
+            Add(new SectionTitle("Service account"));
+            TextBox account = new TextBox();
+            account.Width = Dpi.S(260);
+            account.Font = Fonts.Ui;
+            account.BorderStyle = BorderStyle.FixedSingle;
+            account.BackColor = theme.Field;
+            account.ForeColor = theme.Text;
+            account.Text = Prefs.Get(RunAs.UserPref, "");
+            account.HandleCreated += delegate { MainForm.Cue(account, "DOMAIN\\svc-pxevice"); };
+            account.TextChanged += Safe.Wrap(delegate
+            {
+                string v = account.Text.Trim();
+                if (v != Prefs.Get(RunAs.UserPref, "")) Secret.Save(RunAs.PasswordPref, null);
+                Prefs.Set(RunAs.UserPref, v.Length == 0 ? null : v);
+            });
+            Add(new SettingRow(Glyphs.Shield, "Account", "PxeVice connects to the site, the site database and the PXE distribution points with this account, like runas /netonly. On this PC you are still yourself, and the activity log says both. Leave it empty to use your own account.", account));
+            SettingRow pw = null;
+            FlatButton bForget = SmallButton("Forget the password", delegate
+            {
+                Secret.Save(RunAs.PasswordPref, null);
+                pw.Desc = AccountState();
+                Relayout();
+            });
+            FlatButton bRestart = SmallButton("Start with it now", delegate
+            {
+                RestartWithAccount = true;
+                Close();
+            });
+            pw = new SettingRow(Glyphs3.Play, "Use the account", AccountState(), new ButtonStrip(bRestart, bForget));
+            Add(pw);
 
             List<SavedSite> saved = Sites.All();
             if (saved.Count > 0)
@@ -339,23 +378,42 @@ namespace PxeVice
     public sealed class NameDialog : PageForm
     {
         readonly TextBox box = new TextBox();
+        readonly Toggle remember = new Toggle();
+        readonly bool secret;
 
         public string Value
         {
-            get { return box.Text.Trim(); }
+            get { return secret ? box.Text : box.Text.Trim(); }
         }
 
-        public NameDialog(Theme t, string title, string label, string desc, string start) : base(title, t)
+        public bool Remember
         {
-            Size = new Size(Dpi.S(620), Dpi.S(300));
+            get { return remember.On; }
+        }
+
+        public NameDialog(Theme t, string title, string label, string desc, string start) : this(t, title, label, desc, start, false, null)
+        {
+        }
+
+        // With secret the text is hidden, and with a remember text the dialog asks whether to keep it.
+        public NameDialog(Theme t, string title, string label, string desc, string start, bool secret, string rememberText) : base(title, t)
+        {
+            this.secret = secret;
+            Size = new Size(Dpi.S(640), Dpi.S(rememberText == null ? 300 : 400));
+            box.UseSystemPasswordChar = secret;
             box.Width = Dpi.S(240);
             box.Font = Fonts.Ui;
             box.BorderStyle = BorderStyle.FixedSingle;
             box.BackColor = t.Field;
             box.ForeColor = t.Text;
             box.Text = start ?? "";
-            Add(new SettingRow(Glyphs3.Server, label, desc, box));
-            FlatButton ok = new FlatButton("Save", Glyphs.Save);
+            Add(new SettingRow(secret ? Glyphs.Shield : Glyphs3.Server, label, desc, box));
+            if (rememberText != null)
+            {
+                remember.On = true;
+                Add(new SettingRow(Glyphs.Shield, "Remember the password", rememberText, remember));
+            }
+            FlatButton ok = new FlatButton(secret ? "Start" : "Save", secret ? Glyphs3.Play : Glyphs.Save);
             ok.Primary = true;
             ok.Dock = DockStyle.Right;
             ok.Width = Math.Max(ok.Width, Dpi.S(96));

@@ -1,5 +1,15 @@
 # Changelog
 
+## PxeVice 0.3.0
+
+15 November 2026.
+
+- **Service account**: set an account in Settings, and PxeVice connects to the SMS Provider, the site database and the PXE distribution points with it, like `runas /netonly`. On the PC the supporter is still themselves. Supporters need no rights of their own in Configuration Manager or the site database
+- The password is asked for when PxeVice starts, or remembered for the Windows user, encrypted with DPAPI. **Forget the password** removes it
+- The activity log, the Activity tab and reports say both who made a change and the account it was made with, such as `CONTOSO\supporter as CONTOSO\svc-pxevice`
+- The subtitle shows the account PxeVice runs with, and a failed sign-in says to check its password
+- Run on the site server itself, PxeVice says that it connects with your own account, since the service account is only used over the network
+
 ## PxeVice 0.2.0
 
 15 November 2026.

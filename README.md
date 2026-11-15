@@ -27,7 +27,7 @@ Get `PxeVice.msi` or the portable `PxeVice.exe` from the [latest release](https:
 | Restarting the PXE service | Administrator on the distribution point |
 | LogVice | Optional. When it is not found, the button asks you to locate LogVice.exe and keeps your choice |
 
-A supporter account can be given exactly these rights in the site database instead of a broader role.
+These rights go to the account PxeVice connects with: the supporter's own account, or a [service account](#service-account) set in Settings. Either can be given exactly these rights in the site database instead of a broader role.
 
 ## Why a machine does not PXE boot
 
@@ -86,6 +86,18 @@ Many machines can PXE boot with the same USB network adapter, so a MAC address i
 
 **Watch** (Ctrl+W) reads the site and the new lines of SMSPXE.log every 10 seconds, and says in the status bar when a PXE boot comes in. The taskbar button flashes when PxeVice is in the background. When it connects, PxeVice reads up to 8 MB of SMSPXE.log and the rolled-over SMSPXE.lo_; after that only new lines.
 
+## Service account
+
+When supporters do their work through a service account, PxeVice can use it too. Write the account in **Settings > Service account**, as `DOMAIN\name` or `name@domain`, and press **Start with it now**. PxeVice asks for the password and starts again, like `runas /netonly`:
+
+- On the PC the supporter is still themselves: their settings, their files and their name in the activity log
+- Over the network PxeVice is the service account: the SMS Provider, the site database, SMSPXE.log and the PXE service. The supporter needs no rights of their own there
+- The activity log, the Activity tab and reports say both, such as `CONTOSO\supporter as CONTOSO\svc-pxevice`
+
+The password can be remembered for the supporter's Windows user, encrypted with DPAPI, so PxeVice starts with the account without asking. **Forget the password** removes it. Windows checks the password the first time PxeVice connects: a wrong one shows as a failed connection.
+
+The service account is only used over the network. On the site server itself the connections are local and use the supporter's own account, so run PxeVice from another PC. On the command line, start PxeVice with `runas /netonly /user:CONTOSO\svc-pxevice "PxeVice.exe /list"`.
+
 ## Sites
 
 **Site** in the toolbar switches between saved sites, such as one per customer. **Save this site as** keeps the site server, the site database, the PXE distribution points and where SMSPXE.log is under a name. On the command line, `/use <name>` uses a saved site.
@@ -100,7 +112,7 @@ Every change, and every next PXE boot after a reset, is written to `%LOCALAPPDAT
 
 ## Settings
 
-**Settings** (Ctrl+,) holds the theme, the site server, SQL Server, site database and PXE distribution points when they are not found, where SMSPXE.log is, the saved sites, whether Unknown records are deleted and the PXE service restarted by default, how often Watch reads, whether to watch after a reset or when PxeVice opens, how far back PXE boots are shown (1 hour to 3 days), and where LogVice is. They are kept in `HKCU\Software\PxeVice`.
+**Settings** (Ctrl+,) holds the theme, the service account, the site server, SQL Server, site database and PXE distribution points when they are not found, where SMSPXE.log is, the saved sites, whether Unknown records are deleted and the PXE service restarted by default, how often Watch reads, whether to watch after a reset or when PxeVice opens, how far back PXE boots are shown (1 hour to 3 days), and where LogVice is. They are kept in `HKCU\Software\PxeVice`.
 
 ![PxeVice in the Vice theme](docs/images/pxevice-vice.png)
 
@@ -157,6 +169,8 @@ A MAC address can be written with colons, dashes or nothing in between. The exit
 
 Reading, watching, the PXE check and reports change nothing. PxeVice talks to the SMS Provider, the site database and the PXE distribution points you name, and to nothing else.
 
+A service account's password is only kept when you choose to, encrypted with DPAPI for your Windows user in `HKCU\Software\PxeVice`. A supporter who can start PxeVice with the account can do everything the account can do, so give it only the rights in [Requirements](#requirements).
+
 A reset changes the site only after you confirm the list of changes: it clears PXE flags, deletes device records and rows in `LastPXEAdvertisement`, and restarts the PXE service when you choose it. Every change is written to the activity log with the Windows account that made it.
 
 ## Limitations
@@ -166,6 +180,7 @@ A reset changes the site only after you confirm the list of changes: it clears P
 - The PXE check reads collection membership as the site has it now. A collection that has not been evaluated since a device was added shows the old membership.
 - The check looks at deployments, boot images and the distribution point. Network causes, such as DHCP options, IP helpers or a firewall, are not visible to it: when the machine's PXE boots are missing from SMSPXE.log, the request did not reach the PXE point.
 - Direct changes to the site database are not supported by Microsoft. PxeVice only deletes rows the supported method did not clear.
+- The service account works over the network only, like `runas /netonly`. On the site server PxeVice connects locally with the supporter's own account.
 - The exe and MSI are unsigned. SmartScreen warns on downloaded copies, and AppLocker or WDAC need them signed with your own certificate.
 
 ## Build from source
