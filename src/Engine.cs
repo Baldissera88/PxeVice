@@ -23,6 +23,9 @@ namespace PxeVice
         public List<DeviceRecord> UnknownRecords = new List<DeviceRecord>();
         public List<Machine> Machines = new List<Machine>();
         public Dictionary<string, string> DeploymentNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // Every PXE request in the lines read from SMSPXE.log, newest first.
+        public List<PxeRequest> Requests = new List<PxeRequest>();
+        public readonly List<string> Notes = new List<string>();
         public DateTime ReadUtc;
     }
 
@@ -32,18 +35,58 @@ namespace PxeVice
         // on a network adapter that many machines share. PxeVice does not delete them.
         public const int MaxRowsPerMachine = 25;
 
+        // Machines with only PXE requests are listed while their last request is this recent and was not serviced.
+        public static TimeSpan RequestWindow = TimeSpan.FromHours(24);
+
         public static SiteData Read(ISite site)
+        {
+            return Read(site, null);
+        }
+
+        // With a store, the new lines of SMSPXE.log on every PXE distribution point are read into it as well.
+        public static SiteData Read(ISite site, PxeLogStore store)
         {
             SiteData d = new SiteData();
             d.Flags = site.ReadFlags();
             d.UnknownRecords = site.UnknownRecords();
+            if (store != null)
+            {
+                foreach (string server in site.Info.PxeServers)
+                {
+                    try
+                    {
+                        string note;
+                        List<LogLine> lines = site.ReadPxeLog(server, out note);
+                        store.Add(server, lines);
+                        if (note != null) store.Notes[server] = note;
+                        else store.Notes.Remove(server);
+                    }
+                    catch (Exception ex) { store.Notes[server] = "SMSPXE.log on " + server + " could not be read: " + ex.Message; }
+                }
+                d.Requests = store.Requests();
+                foreach (string n in store.Notes.Values) d.Notes.Add(n);
+            }
             List<string> ids = new List<string>();
             foreach (PxeFlag f in d.Flags) if (!string.IsNullOrEmpty(f.DeploymentId) && !ids.Contains(f.DeploymentId)) ids.Add(f.DeploymentId);
+            foreach (PxeRequest r in d.Requests) if (!string.IsNullOrEmpty(r.OfferId) && !ids.Contains(r.OfferId)) ids.Add(r.OfferId);
             d.DeploymentNames = site.DeploymentNames(ids);
-            d.Machines = Merge(d.Flags, d.UnknownRecords);
-            foreach (Machine m in d.Machines) m.DeploymentNames = d.DeploymentNames;
+            d.Machines = Merge(d.Flags, d.UnknownRecords, d.Requests, DateTime.UtcNow);
+            // A machine that PXE booted as a known device gets that device record, so it shows its name.
+            foreach (Machine m in d.Machines)
+            {
+                m.DeploymentNames = d.DeploymentNames;
+                PxeRequest r = m.LastRequest;
+                if (m.Devices.Count > 0 || r == null || r.ItemKey <= 0 || r.ItemKey >= Ids.UnknownComputerStart) continue;
+                try { m.Devices.AddRange(site.FindDevices(null, null, null, new uint[] { (uint)r.ItemKey })); }
+                catch (Exception) { }
+            }
             d.ReadUtc = DateTime.UtcNow;
             return d;
+        }
+
+        public static List<Machine> Merge(List<PxeFlag> flags, List<DeviceRecord> devices)
+        {
+            return Merge(flags, devices, new List<PxeRequest>(), DateTime.UtcNow);
         }
 
         public static string Key(string mac, string guid)
@@ -54,7 +97,7 @@ namespace PxeVice
         }
 
         // One machine per SMBIOS GUID, or per MAC address when there is no GUID. A record with neither stays on its own.
-        public static List<Machine> Merge(List<PxeFlag> flags, List<DeviceRecord> devices)
+        public static List<Machine> Merge(List<PxeFlag> flags, List<DeviceRecord> devices, List<PxeRequest> requests, DateTime now)
         {
             Dictionary<string, Machine> byKey = new Dictionary<string, Machine>(StringComparer.OrdinalIgnoreCase);
             List<Machine> list = new List<Machine>();
@@ -89,6 +132,22 @@ namespace PxeVice
                 foreach (DeviceRecord x in m.Devices) if (x.ResourceId == d.ResourceId) have = true;
                 if (!have) m.Devices.Add(d);
             }
+            // Requests come newest first, so each machine's list stays newest first.
+            Dictionary<Machine, bool> fromRequests = new Dictionary<Machine, bool>();
+            foreach (PxeRequest r in requests)
+            {
+                int before = list.Count;
+                Machine m = get(r.MacAddress, r.SmbiosGuid);
+                if (list.Count > before) fromRequests[m] = true;
+                m.Requests.Add(r);
+            }
+            // A machine known only from its PXE requests is listed while its last boot was recent and not serviced.
+            list.RemoveAll(delegate (Machine m)
+            {
+                if (!fromRequests.ContainsKey(m) || m.Flags.Count > 0 || m.Devices.Count > 0) return false;
+                PxeRequest r = m.LastRequest;
+                return r == null || !m.NotServiced || !r.Utc.HasValue || now - r.Utc.Value > RequestWindow;
+            });
             list.Sort(delegate (Machine a, Machine b)
             {
                 DateTime x = a.LastSeenUtc ?? DateTime.MinValue, y = b.LastSeenUtc ?? DateTime.MinValue;

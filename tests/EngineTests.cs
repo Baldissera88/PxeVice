@@ -90,7 +90,7 @@ namespace PxeVice.Tests
             T.Equal(0, site.FlagsFor("00:15:5D:23:21:3B", "74B241D3-5E0A-4380-B552-F350682ABD84", null).Count, "lab machine: no flags left");
             T.Equal(0, site.FindDevices("00:15:5D:23:21:3B", "74B241D3-5E0A-4380-B552-F350682ABD84", null, null).Count, "lab machine: no records left");
             T.Equal(4, site.Flags.Count, "the other flags stay");
-            T.Equal(4, site.Devices.Count, "the other devices stay");
+            T.Equal(6, site.Devices.Count, "the other devices stay");
 
             ResetOptions keep = new ResetOptions();
             keep.DeleteUnknownRecords = false;

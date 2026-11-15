@@ -218,7 +218,49 @@ namespace PxeVice
             Add(Field(Glyphs3.Server, "Site server", "The server with the SMS Provider. Leave it empty to use this computer.", "SiteServer", info != null ? info.SiteServer : null));
             Add(Field(Glyphs3.Server, "SQL Server", "Found from the site when empty. For a named instance, use SERVER\\INSTANCE.", "SqlServer", info != null ? info.SqlServer : null));
             Add(Field(Glyphs2.Code, "Site database", "Found from the site when empty, such as CM_P01.", "Database", info != null ? info.Database : null));
-            Add(Field(Glyphs3.Network, "PXE distribution points", "Where the PXE service is restarted and SMSPXE.log is read. Separate several with commas. Found from the site when empty.", "PxeServers", info != null && info.PxeServers.Count > 0 ? string.Join(", ", info.PxeServers.ToArray()) : null));
+            Add(Field(Glyphs3.Network, "PXE distribution points", "Where SMSPXE.log is read and the PXE service is restarted. Separate several with commas. Found from the site when empty.", "PxeServers", info != null && info.PxeServers.Count > 0 ? string.Join(", ", info.PxeServers.ToArray()) : null));
+            Add(Field(Glyphs.Log, "SMSPXE.log", "Only when PxeVice does not find it. <server> stands for each PXE distribution point, such as \\\\<server>\\D$\\SMS\\Logs\\SMSPXE.log.", "PxeLogPath", null));
+
+            List<SavedSite> saved = Sites.All();
+            if (saved.Count > 0)
+            {
+                Add(new SectionTitle("Saved sites"));
+                foreach (SavedSite site in saved)
+                {
+                    SavedSite one = site;
+                    SettingRow row = null;
+                    FlatButton bRemove = SmallButton("Remove", delegate
+                    {
+                        Sites.Remove(one.Name);
+                        row.Visible = false;
+                        Relayout();
+                    });
+                    row = new SettingRow(Glyphs3.Server, site.Name, site.Describe() + (string.IsNullOrEmpty(site.PxeServers) ? "" : " · PXE: " + site.PxeServers) + ". Switch with Site in the toolbar.", new ButtonStrip(bRemove));
+                    Add(row);
+                }
+            }
+
+            string[] secs = { "5", "10", "30", "60" };
+            Segmented segWatch = new Segmented(new string[] { "5 s", "10 s", "30 s", "60 s" });
+            int wi = Array.IndexOf(secs, Prefs.GetInt("WatchSeconds", 10).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            segWatch.Selected = wi < 0 ? 1 : wi;
+            segWatch.Changed += Safe.Wrap(delegate { Prefs.Set("WatchSeconds", secs[segWatch.Selected]); });
+            Toggle afterReset = new Toggle();
+            afterReset.On = Prefs.GetBool("WatchAfterReset", true);
+            afterReset.Changed += Safe.Wrap(delegate { Prefs.SetBool("WatchAfterReset", afterReset.On); });
+            Toggle onStart = new Toggle();
+            onStart.On = Prefs.GetBool("WatchOnStart", false);
+            onStart.Changed += Safe.Wrap(delegate { Prefs.SetBool("WatchOnStart", onStart.On); });
+            string[] hours = { "1", "4", "24", "72" };
+            Segmented segHours = new Segmented(new string[] { "1 h", "4 h", "24 h", "3 days" });
+            int hi = Array.IndexOf(hours, Prefs.GetInt("RequestHours", 24).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            segHours.Selected = hi < 0 ? 2 : hi;
+            segHours.Changed += Safe.Wrap(delegate { Prefs.Set("RequestHours", hours[segHours.Selected]); });
+            Add(new SectionTitle("Watch and PXE boots"));
+            Add(new SettingRow(Glyphs.Watch, "Read every", "How often Watch reads the site and the new lines of SMSPXE.log.", segWatch));
+            Add(new SettingRow(Glyphs.Watch, "Watch after a reset", "Start watching after a reset, so PxeVice tells what the machine gets at its next PXE boot.", afterReset));
+            Add(new SettingRow(Glyphs.Watch, "Watch when PxeVice opens", "Start watching at once.", onStart));
+            Add(new SettingRow(Glyphs3.History, "PXE boots from the last", "The PXE boots tab, and machines listed only for a PXE boot that was not serviced. PxeVice reads up to 8 MB of SMSPXE.log and SMSPXE.lo_ when it connects.", segHours));
 
             Toggle unknown = new Toggle();
             unknown.On = Prefs.GetBool("DeleteUnknown", true);
@@ -293,6 +335,59 @@ namespace PxeVice
         }
     }
 
+    // Asks for one line of text, such as the name of a site.
+    public sealed class NameDialog : PageForm
+    {
+        readonly TextBox box = new TextBox();
+
+        public string Value
+        {
+            get { return box.Text.Trim(); }
+        }
+
+        public NameDialog(Theme t, string title, string label, string desc, string start) : base(title, t)
+        {
+            Size = new Size(Dpi.S(620), Dpi.S(300));
+            box.Width = Dpi.S(240);
+            box.Font = Fonts.Ui;
+            box.BorderStyle = BorderStyle.FixedSingle;
+            box.BackColor = t.Field;
+            box.ForeColor = t.Text;
+            box.Text = start ?? "";
+            Add(new SettingRow(Glyphs3.Server, label, desc, box));
+            FlatButton ok = new FlatButton("Save", Glyphs.Save);
+            ok.Primary = true;
+            ok.Dock = DockStyle.Right;
+            ok.Width = Math.Max(ok.Width, Dpi.S(96));
+            ok.ApplyTheme(t);
+            ok.Click += delegate
+            {
+                if (Value.Length == 0) return;
+                DialogResult = DialogResult.OK;
+                Close();
+            };
+            bClose.Text = "Cancel";
+            bClose.Primary = false;
+            bClose.ApplyTheme(t);
+            Panel gap = new Panel();
+            gap.Dock = DockStyle.Right;
+            gap.Width = Dpi.S(8);
+            footer.Controls.Add(gap);
+            footer.Controls.Add(ok);
+            footer.Controls.SetChildIndex(ok, 0);
+            footer.Controls.SetChildIndex(gap, 1);
+            AcceptButton = null;
+            Shown += delegate { box.Focus(); box.SelectAll(); };
+            box.KeyDown += delegate (object o, KeyEventArgs e)
+            {
+                if (e.KeyCode != Keys.Enter || Value.Length == 0) return;
+                e.SuppressKeyPress = true;
+                DialogResult = DialogResult.OK;
+                Close();
+            };
+        }
+    }
+
     public sealed class AboutDialog : PageForm
     {
         public AboutDialog(Theme t) : base("About PxeVice", t)
@@ -301,26 +396,29 @@ namespace PxeVice
             hero.Version = "Version " + Cli.Version;
             hero.Detail = "Built " + Program.BuildDate;
             hero.Developer = Program.Developer;
-            hero.Blurb = "Finds what a Configuration Manager site keeps after a PXE boot, such as PXE flags, Unknown device records and flags of deleted devices, and clears them so the machine can PXE boot again. A companion to LogVice and PolicyVice.";
+            hero.Blurb = "Shows every PXE boot from SMSPXE.log and what it got, checks why a machine is not offered a task sequence, and clears what the site keeps after a PXE boot, such as PXE flags and Unknown device records, so the machine can PXE boot again. A companion to LogVice, PolicyVice and TrackVice.";
             hero.License = "Released under the MIT license.";
             Add(hero);
             Add(new SectionTitle("Command line"));
             KeyTable cli = new KeyTable(true, Cli.Help);
             Add(cli);
-            Add(new SettingRow(Glyphs.Info, "Exit codes", "0 when done, 1 on an error, and 2 when nothing was found for the machine. Use Start-Process with -Wait in PowerShell.", null));
+            Add(new SettingRow(Glyphs.Info, "Exit codes", "0 when done, 1 on an error, and 2 when nothing was found for the machine, or for /check when something blocks PXE. Use Start-Process with -Wait -PassThru in PowerShell.", null));
             Add(new SectionTitle("Keyboard shortcuts"));
             Add(new KeyTable(false,
-                new string[] { "F5", "Read the site again" },
+                new string[] { "F5", "Read the site and SMSPXE.log again" },
+                new string[] { "Ctrl+W", "Start or stop watching" },
                 new string[] { "Ctrl+R", "Reset the selected machines" },
-                new string[] { "Ctrl+F", "Search machines" },
+                new string[] { "Ctrl+E", "Report of the selected machines for the ticket" },
+                new string[] { "Ctrl+F", "Search machines and PXE boots" },
+                new string[] { "Ctrl+1 to Ctrl+4", "Machines, PXE boots, PXE flags, Activity" },
                 new string[] { "Ctrl+L", "Open SMSPXE.log in LogVice" },
                 new string[] { "Ctrl+C", "Copy the selected row" },
                 new string[] { "Ctrl+,", "Settings" },
                 new string[] { "F1", "This page" },
                 new string[] { "Esc", "Clear the search, or close this page" }));
             Add(new SectionTitle("What PxeVice changes"));
-            Add(new SettingRow(Glyphs.Shield, "Only on Reset, and only after you confirm", "Reading changes nothing. A reset clears the PXE flag with Clear Required PXE Deployments, deletes Unknown device records, deletes the machine's rows in LastPXEAdvertisement and, when chosen, restarts the PXE service. Every change is written to " + ActivityLog.FilePath + ".", null));
-            Add(new SettingRow(Glyphs2.Settings, "Permissions", "Rights in Configuration Manager to read and delete devices, and in the site database SELECT on v_R_System, v_Advertisement and v_Package, and SELECT and DELETE on LastPXEAdvertisement. Restarting the PXE service needs administrator rights on the distribution point.", null));
+            Add(new SettingRow(Glyphs.Shield, "Only on Reset, and only after you confirm", "Reading, watching, the PXE check and reports change nothing. A reset clears the PXE flag with Clear Required PXE Deployments, deletes Unknown device records, deletes the machine's rows in LastPXEAdvertisement and, when chosen, restarts the PXE service. Every change is written to " + ActivityLog.FilePath + ".", null));
+            Add(new SettingRow(Glyphs2.Settings, "Permissions", "Rights in Configuration Manager to read devices, collections, deployments, task sequences, content status and the site's distribution points, and to delete devices. In the site database SELECT on v_R_System, v_Advertisement and v_Package, and SELECT and DELETE on LastPXEAdvertisement. Read access to SMSPXE.log on the PXE distribution points. Restarting the PXE service needs administrator rights on the distribution point.", null));
 
             FlatButton bCopy = new FlatButton("Copy details", Glyphs.Copy);
             bCopy.Dock = DockStyle.Left;

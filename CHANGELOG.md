@@ -1,5 +1,21 @@
 # Changelog
 
+## PxeVice 0.2.0
+
+15 November 2026.
+
+- **PXE boots**: PxeVice reads SMSPXE.log on every PXE distribution point and shows each PXE boot: when, from which MAC address and SMBIOS GUID, the architecture, whether the site knew the machine, and what it got: a task sequence, or not serviced. The log lines behind it are one click away. A supporter finds the machine that just failed without knowing its MAC address
+- Machines whose last PXE boot was not serviced are on the Machines tab too, with the device record they booted as, even when nothing is left in `LastPXEAdvertisement`
+- **PXE check**: for every machine, what blocks it and what to do, worst first: a required deployment already offered, a leftover Unknown record, several device records, a duplicate SMBIOS GUID or MAC address, no task sequence deployed to the machine or to Unknown Computers, a deployment only available to Configuration Manager clients, not available yet or expired, a boot image that is not on the PXE distribution point, and unknown computer support turned off. What works shows too: the deployments it can get
+- **Watch** (Ctrl+W) reads the site and the new lines of SMSPXE.log every 10 seconds and says when a PXE boot comes in
+- **Next boot after a reset**: PxeVice starts watching, waits for the machine to PXE boot again, and says in the status bar and on the Activity tab whether it was offered a task sequence
+- **Saved sites**: switch between sites from the toolbar, and use one on the command line with `/use`
+- **Reports for the ticket**: an HTML report of the selected machines with the check, the PXE boots and the changes made (Ctrl+E), the check as text on the clipboard, and the PXE boots as CSV
+- Command line: `/check` (exit code 2 when something blocks PXE), `/requests` and `/report`
+- Settings: how often Watch reads, watching after a reset or at start, how far back PXE boots are shown, and where SMSPXE.log is when PxeVice does not find it
+- SMSPXE.log is found in `SMS_DP$\sms\logs`, the site's Logs folder, the Configuration Manager install folder and `SMS_CCM\Logs`
+- `bump.sh` and `bump.ps1` set a new version, like in TrackVice
+
 ## PxeVice 0.1.0
 
 11 November 2026. First version.

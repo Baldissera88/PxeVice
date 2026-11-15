@@ -73,7 +73,20 @@ namespace PxeVice
         public string SmbiosGuid;
         public readonly List<PxeFlag> Flags = new List<PxeFlag>();
         public readonly List<DeviceRecord> Devices = new List<DeviceRecord>();
+        // PXE requests from SMSPXE.log, newest first.
+        public readonly List<PxeRequest> Requests = new List<PxeRequest>();
         public Dictionary<string, string> DeploymentNames;
+
+        public PxeRequest LastRequest
+        {
+            get { return Requests.Count > 0 ? Requests[0] : null; }
+        }
+
+        // The last PXE boot found no deployment.
+        public bool NotServiced
+        {
+            get { PxeRequest r = LastRequest; return r != null && (r.Outcome == RequestOutcome.NotServiced || r.Outcome == RequestOutcome.NoDeployment); }
+        }
 
         public string Name
         {
@@ -82,6 +95,7 @@ namespace PxeVice
                 foreach (DeviceRecord d in Devices) if (!d.IsUnknownRecord) return d.Name;
                 foreach (PxeFlag f in Flags) if (f.DeviceName != null) return f.DeviceName;
                 foreach (PxeFlag f in Flags) if (!string.IsNullOrEmpty(f.Netbios)) return f.Netbios;
+                foreach (PxeRequest r in Requests) if (!string.IsNullOrEmpty(r.Netbios)) return r.Netbios;
                 if (Devices.Count > 0) return Devices[0].Name;
                 return HasDeletedFlag ? "Deleted device" : "Unknown computer";
             }
@@ -122,6 +136,8 @@ namespace PxeVice
                 if (Flags.Count > 0) parts.Add(Flags.Count == 1 ? "PXE flag" : Flags.Count + " PXE flags");
                 if (HasUnknownRecord) parts.Add("Unknown record");
                 if (HasNamedDevice) parts.Add("device");
+                if (NotServiced) parts.Insert(0, "not serviced");
+                else if (parts.Count == 0 && LastRequest != null) parts.Add(LastRequest.Served ? "served" : "PXE request");
                 return parts.Count == 0 ? "Nothing" : Txt.Sentence(string.Join(" + ", parts.ToArray()));
             }
         }
@@ -153,6 +169,7 @@ namespace PxeVice
             get
             {
                 DateTime? last = LastPxeUtc;
+                foreach (PxeRequest r in Requests) if (r.Utc.HasValue && (!last.HasValue || r.Utc.Value > last.Value)) last = r.Utc;
                 foreach (DeviceRecord d in Devices) if (d.CreatedUtc.HasValue && (!last.HasValue || d.CreatedUtc.Value > last.Value)) last = d.CreatedUtc;
                 return last;
             }
@@ -164,6 +181,8 @@ namespace PxeVice
             {
                 List<string> ids = new List<string>();
                 foreach (PxeFlag f in Flags) if (!string.IsNullOrEmpty(f.DeploymentId) && !ids.Contains(f.DeploymentId)) ids.Add(f.DeploymentId);
+                PxeRequest r = LastRequest;
+                if (r != null && r.OfferId != null && !ids.Contains(r.OfferId)) ids.Add(r.OfferId);
                 return string.Join(", ", ids.ToArray());
             }
         }
@@ -193,6 +212,7 @@ namespace PxeVice
                 if (MacAddress != null) list.Add(MacAddress);
                 foreach (PxeFlag f in Flags) if (f.MacAddress != null && !list.Contains(f.MacAddress)) list.Add(f.MacAddress);
                 foreach (DeviceRecord d in Devices) foreach (string m in d.MacAddresses) if (!list.Contains(m)) list.Add(m);
+                foreach (PxeRequest r in Requests) if (r.MacAddress != null && !list.Contains(r.MacAddress)) list.Add(r.MacAddress);
                 return list;
             }
         }

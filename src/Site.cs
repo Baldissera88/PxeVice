@@ -17,15 +17,137 @@ namespace PxeVice
         public string SqlServer;
         public string Database;
         public string PxeServers;
+        public string Name;
 
         public static SiteOptions FromPrefs()
         {
             SiteOptions o = new SiteOptions();
+            o.Name = Prefs.Get("SiteName", null);
             o.SiteServer = Prefs.Get("SiteServer", null);
             o.SqlServer = Prefs.Get("SqlServer", null);
             o.Database = Prefs.Get("Database", null);
             o.PxeServers = Prefs.Get("PxeServers", null);
             return o;
+        }
+    }
+
+    // A site saved under a name, such as one per customer.
+    public sealed class SavedSite
+    {
+        public string Name;
+        public string SiteServer;
+        public string SqlServer;
+        public string Database;
+        public string PxeServers;
+        public string PxeLogPath;
+
+        public string Line
+        {
+            get { return string.Join("|", new string[] { Clean(Name), Clean(SiteServer), Clean(SqlServer), Clean(Database), Clean(PxeServers), Clean(PxeLogPath) }); }
+        }
+
+        static string Clean(string s)
+        {
+            return (s ?? "").Replace("|", "").Replace("\r", "").Replace("\n", "").Trim();
+        }
+
+        public static SavedSite Parse(string line)
+        {
+            if (string.IsNullOrEmpty(line)) return null;
+            string[] p = line.Split('|');
+            if (p.Length < 2 || p[0].Trim().Length == 0) return null;
+            SavedSite s = new SavedSite();
+            s.Name = p[0].Trim();
+            s.SiteServer = Part(p, 1);
+            s.SqlServer = Part(p, 2);
+            s.Database = Part(p, 3);
+            s.PxeServers = Part(p, 4);
+            s.PxeLogPath = Part(p, 5);
+            return s;
+        }
+
+        static string Part(string[] p, int i)
+        {
+            return i < p.Length && p[i].Trim().Length > 0 ? p[i].Trim() : null;
+        }
+
+        public string Describe()
+        {
+            return string.IsNullOrEmpty(SiteServer) ? "This computer" : SiteServer;
+        }
+    }
+
+    // The saved sites, in HKCU\Software\PxeVice. The site in use is kept in the same values as before, so a single site
+    // needs no saving.
+    public static class Sites
+    {
+        public static List<SavedSite> All()
+        {
+            List<SavedSite> list = new List<SavedSite>();
+            foreach (string line in (Prefs.Get("Sites", "") ?? "").Split('\n'))
+            {
+                SavedSite s = SavedSite.Parse(line.Trim());
+                if (s != null && Find(list, s.Name) == null) list.Add(s);
+            }
+            list.Sort(delegate (SavedSite a, SavedSite b) { return string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase); });
+            return list;
+        }
+
+        static SavedSite Find(List<SavedSite> list, string name)
+        {
+            foreach (SavedSite s in list) if (string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase)) return s;
+            return null;
+        }
+
+        public static SavedSite Find(string name)
+        {
+            return Find(All(), name);
+        }
+
+        static void Store(List<SavedSite> list)
+        {
+            List<string> lines = new List<string>();
+            foreach (SavedSite s in list) lines.Add(s.Line);
+            Prefs.Set("Sites", lines.Count == 0 ? null : string.Join("\n", lines.ToArray()));
+        }
+
+        public static void Save(SavedSite site)
+        {
+            List<SavedSite> list = All();
+            list.RemoveAll(delegate (SavedSite s) { return string.Equals(s.Name, site.Name, StringComparison.OrdinalIgnoreCase); });
+            list.Add(site);
+            Store(list);
+        }
+
+        public static void Remove(string name)
+        {
+            List<SavedSite> list = All();
+            list.RemoveAll(delegate (SavedSite s) { return string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase); });
+            Store(list);
+            if (string.Equals(Prefs.Get("SiteName", null), name, StringComparison.OrdinalIgnoreCase)) Prefs.Set("SiteName", null);
+        }
+
+        // The site in use, as a saved site with the current name.
+        public static SavedSite Current()
+        {
+            SavedSite s = new SavedSite();
+            s.Name = Prefs.Get("SiteName", null);
+            s.SiteServer = Prefs.Get("SiteServer", null);
+            s.SqlServer = Prefs.Get("SqlServer", null);
+            s.Database = Prefs.Get("Database", null);
+            s.PxeServers = Prefs.Get("PxeServers", null);
+            s.PxeLogPath = Prefs.Get("PxeLogPath", null);
+            return s;
+        }
+
+        public static void Use(SavedSite s)
+        {
+            Prefs.Set("SiteName", s.Name);
+            Prefs.Set("SiteServer", s.SiteServer);
+            Prefs.Set("SqlServer", s.SqlServer);
+            Prefs.Set("Database", s.Database);
+            Prefs.Set("PxeServers", s.PxeServers);
+            Prefs.Set("PxeLogPath", s.PxeLogPath);
         }
     }
 
@@ -40,6 +162,7 @@ namespace PxeVice
         public readonly List<string> PxeServers = new List<string>();
         public readonly List<string> Notes = new List<string>();
         public bool Demo;
+        public string Name;
 
         public string Describe()
         {
@@ -51,6 +174,7 @@ namespace PxeVice
         {
             StringBuilder b = new StringBuilder();
             if (Demo) b.Append("Demo data").Append(sep);
+            else if (!string.IsNullOrEmpty(Name)) b.Append(Name).Append(sep);
             b.Append(SiteServer).Append(sep).Append("site ").Append(SiteCode);
             b.Append(sep).Append(Database).Append(" on ").Append(SqlServer);
             if (PxeServers.Count > 0) b.Append(sep).Append("PXE: ").Append(string.Join(", ", PxeServers.ToArray()));
@@ -73,6 +197,15 @@ namespace PxeVice
         List<string> RunningPxeServices(string server);
         void RestartService(string server, string service);
         string PxeLog(string server);
+        // The lines SMSPXE.log on the server got since the last call. The first call reads the end of the log and of
+        // the rolled-over SMSPXE.lo_. The note says why lines are missing, or is null.
+        List<LogLine> ReadPxeLog(string server, out string note);
+        List<TsDeployment> TaskSequenceDeployments();
+        // The IDs of the collections a resource is in.
+        List<string> CollectionsOf(uint resourceId);
+        // The servers that have the content of a package.
+        List<string> ContentServers(string packageId);
+        List<PxePoint> PxePoints();
     }
 
     public static class PxeServices
@@ -95,6 +228,7 @@ namespace PxeVice
         {
             string server = string.IsNullOrEmpty(o.SiteServer) ? Environment.MachineName : o.SiteServer.Trim();
             info.SiteServer = server;
+            info.Name = o.Name;
 
             ManagementScope root = Scope(server, @"root\SMS");
             root.Connect();
@@ -414,19 +548,190 @@ namespace PxeVice
             }
         }
 
-        // SMSPXE.log is in SMS_DP$\sms\logs on a distribution point, and in the site's Logs folder on a site server.
+        // SMSPXE.log is in SMS_DP$\sms\logs on a standalone distribution point, in the Logs folder of the site on a site
+        // server, and in SMS_CCM\Logs on older versions. A path in Settings comes first.
         public string PxeLog(string server)
         {
-            string[] candidates =
-            {
-                @"\\" + server + @"\SMS_DP$\sms\logs\SMSPXE.log",
-                @"\\" + server + @"\SMS_" + info.SiteCode + @"\Logs\SMSPXE.log"
-            };
+            List<string> candidates = new List<string>();
+            string chosen = Prefs.Get("PxeLogPath", null);
+            if (!string.IsNullOrEmpty(chosen)) candidates.Add(chosen.Replace("<server>", server));
+            candidates.Add(@"\\" + server + @"\SMS_DP$\sms\logs\SMSPXE.log");
+            candidates.Add(@"\\" + server + @"\SMS_" + info.SiteCode + @"\Logs\SMSPXE.log");
+            candidates.Add(@"\\" + server + @"\C$\Program Files\Microsoft Configuration Manager\Logs\SMSPXE.log");
+            candidates.Add(@"\\" + server + @"\C$\Program Files\SMS_CCM\Logs\SMSPXE.log");
             foreach (string c in candidates)
             {
                 try { if (File.Exists(c)) return c; } catch (Exception) { }
             }
             return null;
+        }
+
+        // ---------- SMSPXE.log ----------
+
+        // How much of SMSPXE.log and SMSPXE.lo_ is read the first time.
+        public const long FirstRead = 8L * 1024 * 1024;
+        readonly Dictionary<string, LogTail> tails = new Dictionary<string, LogTail>(StringComparer.OrdinalIgnoreCase);
+
+        public List<LogLine> ReadPxeLog(string server, out string note)
+        {
+            note = null;
+            List<LogLine> lines = new List<LogLine>();
+            LogTail tail;
+            if (!tails.TryGetValue(server, out tail))
+            {
+                string path = PxeLog(server);
+                if (path == null)
+                {
+                    note = "SMSPXE.log was not found on " + server + ". Set where it is in Settings.";
+                    return lines;
+                }
+                string old = Path.ChangeExtension(path, ".lo_");
+                try
+                {
+                    if (File.Exists(old))
+                    {
+                        LogTail o = new LogTail(old);
+                        o.MaxRead = FirstRead;
+                        lines.AddRange(o.Read());
+                    }
+                }
+                catch (Exception) { }
+                tail = new LogTail(path);
+                tail.MaxRead = FirstRead;
+                tails[server] = tail;
+            }
+            lines.AddRange(tail.Read());
+            note = tail.Note;
+            return lines;
+        }
+
+        // ---------- what PXE offers ----------
+
+        static DateTime? WmiTime(ManagementBaseObject o, string prop, string enabled, string gmt)
+        {
+            try
+            {
+                if (enabled != null && !(o[enabled] is bool && (bool)o[enabled])) return null;
+                string v = Convert.ToString(o[prop]);
+                if (v.Length == 0) return null;
+                DateTime t = ManagementDateTimeConverter.ToDateTime(v);
+                // ToDateTime gives local time. A time that is not in UTC is the local time of the site, taken as this PC's.
+                bool isGmt = gmt != null && o[gmt] is bool && (bool)o[gmt];
+                if (isGmt) return DateTime.SpecifyKind(t.ToUniversalTime(), DateTimeKind.Utc);
+                return t.ToUniversalTime();
+            }
+            catch (Exception) { return null; }
+        }
+
+        public List<TsDeployment> TaskSequenceDeployments()
+        {
+            Dictionary<string, string[]> ts = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+            foreach (ManagementObject o in Query(scope, "SELECT PackageID, Name, BootImageID FROM SMS_TaskSequencePackage"))
+                ts[Convert.ToString(o["PackageID"])] = new string[] { Convert.ToString(o["Name"]), Convert.ToString(o["BootImageID"]) };
+            List<TsDeployment> list = new List<TsDeployment>();
+            List<string> colls = new List<string>();
+            foreach (ManagementObject o in Query(scope, "SELECT AdvertisementID, PackageID, CollectionID, AdvertFlags, OfferType, PresentTime, PresentTimeEnabled, PresentTimeIsGMT, ExpirationTime, ExpirationTimeEnabled, ExpirationTimeIsGMT FROM SMS_Advertisement"))
+            {
+                string pkg = Convert.ToString(o["PackageID"]);
+                string[] t;
+                if (!ts.TryGetValue(pkg, out t)) continue;
+                TsDeployment d = new TsDeployment();
+                d.Id = Convert.ToString(o["AdvertisementID"]);
+                d.PackageId = pkg;
+                d.Name = t[0];
+                d.BootImageId = t[1];
+                d.CollectionId = Convert.ToString(o["CollectionID"]);
+                d.Flags = Convert.ToUInt32(o["AdvertFlags"], CultureInfo.InvariantCulture);
+                object offer = o["OfferType"];
+                d.Required = offer != null && Convert.ToInt32(offer, CultureInfo.InvariantCulture) == 0;
+                d.AvailableUtc = WmiTime(o, "PresentTime", "PresentTimeEnabled", "PresentTimeIsGMT");
+                d.ExpiresUtc = WmiTime(o, "ExpirationTime", "ExpirationTimeEnabled", "ExpirationTimeIsGMT");
+                list.Add(d);
+                if (!colls.Contains(d.CollectionId)) colls.Add(d.CollectionId);
+            }
+            if (colls.Count > 0)
+            {
+                Dictionary<string, string> names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                try
+                {
+                    foreach (ManagementObject o in Query(scope, "SELECT CollectionID, Name FROM SMS_Collection"))
+                        names[Convert.ToString(o["CollectionID"])] = Convert.ToString(o["Name"]);
+                }
+                catch (Exception) { }
+                foreach (TsDeployment d in list)
+                {
+                    string n;
+                    if (names.TryGetValue(d.CollectionId, out n)) d.CollectionName = n;
+                }
+            }
+            return list;
+        }
+
+        public List<string> CollectionsOf(uint resourceId)
+        {
+            List<string> list = new List<string>();
+            foreach (ManagementObject o in Query(scope, "SELECT CollectionID FROM SMS_FullCollectionMembership WHERE ResourceID = " + resourceId.ToString(CultureInfo.InvariantCulture)))
+            {
+                string c = Convert.ToString(o["CollectionID"]);
+                if (!list.Contains(c)) list.Add(c);
+            }
+            return list;
+        }
+
+        // ServerNALPath looks like ["Display=\\DP01.contoso.local\"]MSWNET:["SMS_SITE=P01"]\\DP01.contoso.local\.
+        public static string NalServer(string nal)
+        {
+            if (string.IsNullOrEmpty(nal)) return null;
+            int i = nal.LastIndexOf("\\\\", StringComparison.Ordinal);
+            if (i < 0) return null;
+            string s = nal.Substring(i + 2);
+            int end = s.IndexOfAny(new char[] { '\\', '"', ']' });
+            return end < 0 ? s : s.Substring(0, end);
+        }
+
+        public List<string> ContentServers(string packageId)
+        {
+            List<string> list = new List<string>();
+            // State 0 is installed.
+            foreach (ManagementObject o in Query(scope, "SELECT ServerNALPath, State FROM SMS_PackageStatusDistPointsSummarizer WHERE PackageID = '" + Wql(packageId) + "'"))
+            {
+                if (Convert.ToInt32(o["State"], CultureInfo.InvariantCulture) != 0) continue;
+                string s = NalServer(Convert.ToString(o["ServerNALPath"]));
+                if (s != null && !list.Contains(s)) list.Add(s);
+            }
+            return list;
+        }
+
+        public List<PxePoint> PxePoints()
+        {
+            List<PxePoint> list = new List<PxePoint>();
+            foreach (ManagementObject o in Query(scope, "SELECT * FROM SMS_SCI_SysResUse WHERE RoleName = 'SMS Distribution Point'"))
+            {
+                // Props is a lazy property, so the instance is read again.
+                try { o.Get(); } catch (Exception) { }
+                bool? pxe = null, unknown = null, active = null;
+                ManagementBaseObject[] props = o["Props"] as ManagementBaseObject[];
+                if (props != null)
+                {
+                    foreach (ManagementBaseObject p in props)
+                    {
+                        string name = Convert.ToString(p["PropertyName"]);
+                        object v = p["Value"];
+                        bool on = v != null && Convert.ToInt32(v, CultureInfo.InvariantCulture) != 0;
+                        if (name == "IsPXE") pxe = on;
+                        else if (name == "SupportUnknownMachines") unknown = on;
+                        else if (name == "IsActive") active = on;
+                    }
+                }
+                if (pxe != true) continue;
+                PxePoint pp = new PxePoint();
+                string path = Convert.ToString(o["NetworkOSPath"]);
+                pp.Server = path.TrimStart('\\');
+                pp.SupportsUnknown = unknown;
+                pp.Active = active;
+                list.Add(pp);
+            }
+            return list;
         }
 
         public void Dispose()
