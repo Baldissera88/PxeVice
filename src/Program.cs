@@ -9,7 +9,7 @@ namespace PxeVice
     public static class Program
     {
         public const string Developer = Cli.Developer;
-        public const string BuildDate = "15 November 2026";
+        public const string BuildDate = "16 November 2026";
 
         [DllImport("kernel32.dll")]
         static extern bool AttachConsole(int pid);
@@ -83,8 +83,7 @@ namespace PxeVice
         [STAThread]
         public static int Main(string[] args)
         {
-            string[] given = args ?? new string[0];
-            args = RunAs.Take(given);
+            args = args ?? new string[0];
             bool demo = false;
             foreach (string a in args ?? new string[0]) if (Cli.IsDemo(a)) demo = true;
             bool cli = false;
@@ -119,19 +118,19 @@ namespace PxeVice
                 if (Safe.Reporter != null) Safe.Report(e.Exception);
                 else MessageBox.Show(e.Exception.Message, "PxeVice", MessageBoxButtons.OK, MessageBoxIcon.Error);
             };
-            // With a service account in Settings, PxeVice starts itself again with it for the network.
-            if (!demo && RunAs.Account == null && !string.IsNullOrEmpty(Prefs.Get(RunAs.UserPref, null)) && StartWithAccount(args, false)) return 0;
+            // With a service account in Settings, PxeVice uses it for the network from the start.
+            if (!demo && !string.IsNullOrEmpty(Prefs.Get(RunAs.UserPref, null))) UseAccount(null, false);
             using (MainForm f = new MainForm(demo))
             {
                 Application.Run(f);
-                if (f.RestartWithAccount && StartWithAccount(args, true)) return 0;
             }
+            RunAs.Stop();
             return 0;
         }
 
-        // Asks for the password when it is not remembered, and starts PxeVice with the account. Returns false when it
-        // did not start, so this PxeVice goes on with the user's own account.
-        public static bool StartWithAccount(string[] args, bool ask)
+        // Asks for the password when it is not remembered or when asked to, and starts using the account. Returns false
+        // when it is not used, so PxeVice goes on with the user's own account.
+        public static bool UseAccount(IWin32Window owner, bool ask)
         {
             string account = Prefs.Get(RunAs.UserPref, null);
             if (string.IsNullOrEmpty(account)) return false;
@@ -140,21 +139,21 @@ namespace PxeVice
             if (password.Length == 0 || ask)
             {
                 using (NameDialog d = new NameDialog(t, "PxeVice with " + account, "Password", "The password of " + account + ". PxeVice uses the account for the network only: the site, the site database and the PXE distribution points. Cancel to go on with your own account.",
-                    password, true, "Keep it for your Windows user, encrypted with DPAPI, so PxeVice starts with the account without asking."))
+                    password, true, "Keep it for your Windows user, encrypted with DPAPI, so PxeVice uses the account without asking."))
                 {
-                    if (d.ShowDialog() != DialogResult.OK || d.Value.Length == 0) return false;
+                    if ((owner == null ? d.ShowDialog() : d.ShowDialog(owner)) != DialogResult.OK || d.Value.Length == 0) return false;
                     password = d.Value;
                     Secret.Save(RunAs.PasswordPref, d.Remember ? password : null);
                 }
             }
             try
             {
-                RunAs.Start(Location, args, account, password);
+                RunAs.Use(account, password);
                 return true;
             }
             catch (Exception ex)
             {
-                MessageBox.Show("PxeVice could not start with " + account + ": " + ex.Message + "\n\nIt goes on with your own account.", "PxeVice", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("PxeVice could not use " + account + ": " + ex.Message + "\n\nIt goes on with your own account.", "PxeVice", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
         }

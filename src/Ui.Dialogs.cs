@@ -196,7 +196,7 @@ namespace PxeVice
     {
         public event EventHandler ThemeChanged;
         public bool SiteChanged;
-        public bool RestartWithAccount;
+        public bool UseAccountNow;
         List<string> found;
 
         string FoundText()
@@ -215,7 +215,7 @@ namespace PxeVice
         {
             string now = RunAs.Account != null ? "PxeVice runs with " + RunAs.Account + " on the network now. " : "PxeVice runs with your own account now. ";
             if (string.IsNullOrEmpty(Prefs.Get(RunAs.UserPref, null))) return now + "Write an account above to use it.";
-            return now + (Secret.Load(RunAs.PasswordPref).Length > 0 ? "The password is remembered for your Windows user, encrypted with DPAPI." : "PxeVice asks for the password when it starts.") + " Start with it now restarts PxeVice with the account.";
+            return now + (Secret.Load(RunAs.PasswordPref).Length > 0 ? "The password is remembered for your Windows user, encrypted with DPAPI." : "PxeVice asks for the password when it opens.") + " Use it now asks for the password and connects again with the account.";
         }
         readonly SettingRow logViceRow;
 
@@ -279,9 +279,9 @@ namespace PxeVice
                 pw.Desc = AccountState();
                 Relayout();
             });
-            FlatButton bRestart = SmallButton("Start with it now", delegate
+            FlatButton bRestart = SmallButton("Use it now", delegate
             {
-                RestartWithAccount = true;
+                UseAccountNow = true;
                 Close();
             });
             pw = new SettingRow(Glyphs3.Play, "Use the account", AccountState(), new ButtonStrip(bRestart, bForget));

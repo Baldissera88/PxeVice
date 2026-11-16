@@ -92,15 +92,15 @@ PxeVice finds every distribution point with PXE turned on from the site, and rea
 
 ## Service account
 
-When supporters do their work through a service account, PxeVice can use it too. Write the account in **Settings > Service account**, as `DOMAIN\name` or `name@domain`, and press **Start with it now**. PxeVice asks for the password and starts again, like `runas /netonly`:
+When supporters do their work through a service account, PxeVice can use it too. Write the account in **Settings > Service account**, as `DOMAIN\name` or `name@domain`, and press **Use it now**. PxeVice asks for the password and connects again with the account for the network, like `runas /netonly`. It does not restart, and needs neither the Secondary Logon service nor administrator rights:
 
 - On the PC the supporter is still themselves: their settings, their files and their name in the activity log
 - Over the network PxeVice is the service account: the SMS Provider, the site database, SMSPXE.log and the PXE service. The supporter needs no rights of their own there
 - The activity log, the Activity tab and reports say both, such as `CONTOSO\supporter as CONTOSO\svc-pxevice`
 
-The password can be remembered for the supporter's Windows user, encrypted with DPAPI, so PxeVice starts with the account without asking. **Forget the password** removes it. Windows checks the password the first time PxeVice connects: a wrong one shows as a failed connection.
+The password can be remembered for the supporter's Windows user, encrypted with DPAPI, so PxeVice uses the account when it opens, without asking. **Forget the password** removes it. Windows checks the password the first time PxeVice connects: a wrong one shows as a failed connection.
 
-The service account is only used over the network. On the site server itself the connections are local and use the supporter's own account, so run PxeVice from another PC. On the command line, start PxeVice with `runas /netonly /user:CONTOSO\svc-pxevice "PxeVice.exe /list"`.
+The service account is only used over the network. On the site server itself the connections are local and use the supporter's own account, so run PxeVice from another PC. The command line uses the account when its password is remembered; `/ownaccount` uses your own account. SMSPXE.log opens in LogVice as a copy read with the account, since LogVice runs with your own account.
 
 ## Sites
 

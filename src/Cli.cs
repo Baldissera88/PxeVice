@@ -58,6 +58,7 @@ namespace PxeVice
             new string[] { "/keepunknown", "Do not delete device records named Unknown" },
             new string[] { "/restartpxe", "Restart the PXE service afterwards" },
             new string[] { "/use <name>", "Use a site saved in PxeVice" },
+            new string[] { "/ownaccount", "Use your own account, not the service account from Settings" },
             new string[] { "/site <server>", "The site server with the SMS Provider (default: this computer or Settings)" },
             new string[] { "/sql <server> /db <name>", "The site database, when it is not found from the SMS Provider" },
             new string[] { "/pxe <servers>", "PXE distribution points, separated by commas" },
@@ -78,6 +79,7 @@ namespace PxeVice
             bool list = false, reset = false, whatIf = false, demo = false, check = false, requests = false;
             string mac = null, guid = null, name = null, report = null;
             int hours = 24;
+            bool ownAccount = false;
             ResetOptions ro = new ResetOptions();
             SiteOptions so = SiteOptions.FromPrefs();
             try
@@ -91,6 +93,7 @@ namespace PxeVice
                         case "list": list = true; break;
                         case "reset": reset = true; break;
                         case "check": check = true; break;
+                        case "ownaccount": ownAccount = true; break;
                         case "requests": requests = true; break;
                         case "report": report = Next(args, ref i); break;
                         case "hours":
@@ -136,6 +139,16 @@ namespace PxeVice
                 }
                 bool target = mac != null || guid != null || !string.IsNullOrEmpty(name);
                 if ((reset || check) && !target) throw new ArgumentException((reset ? "/reset" : "/check") + " needs /mac, /guid or /name.");
+                // With a service account in Settings and its password remembered, the command line uses it too.
+                if (!demo && !ownAccount && !string.IsNullOrEmpty(Prefs.Get(RunAs.UserPref, null)))
+                {
+                    string pw = Secret.Load(RunAs.PasswordPref);
+                    if (pw.Length > 0)
+                    {
+                        RunAs.Use(Prefs.Get(RunAs.UserPref, null), pw);
+                        Console.WriteLine("Using " + RunAs.Account + " for the network.");
+                    }
+                }
                 using (ISite site = Cli.Connect(demo, so))
                 {
                     Console.WriteLine(site.Info.Describe(" | "));

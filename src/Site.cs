@@ -332,6 +332,12 @@ namespace PxeVice
             c.Authentication = AuthenticationLevel.PacketPrivacy;
             c.EnablePrivileges = true;
             c.Timeout = TimeSpan.FromSeconds(30);
+            // WMI takes the service account itself. It does not take an account for this computer.
+            if (RunAs.Account != null && !RunAs.IsLocal(server))
+            {
+                c.Username = RunAs.Account;
+                c.Password = RunAs.Password;
+            }
             return new ManagementScope(@"\\" + server + @"\" + ns, c);
         }
 
@@ -360,8 +366,10 @@ namespace PxeVice
             b.IntegratedSecurity = true;
             b.ApplicationName = "PxeVice";
             b.ConnectTimeout = 15;
+            // A pooled connection keeps the account it was opened with, so connections are not pooled with a service account.
+            b.Pooling = RunAs.Account == null;
             SqlConnection c = new SqlConnection(b.ConnectionString);
-            c.Open();
+            using (RunAs.Impersonate()) c.Open();
             return c;
         }
 
@@ -556,32 +564,38 @@ namespace PxeVice
 
         public List<string> RunningPxeServices(string server)
         {
-            List<string> list = new List<string>();
-            foreach (string name in PxeServices.Names)
+            using (RunAs.Impersonate())
             {
-                try
+                List<string> list = new List<string>();
+                foreach (string name in PxeServices.Names)
                 {
-                    using (ServiceController s = new ServiceController(name, server))
+                    try
                     {
-                        if (s.Status == ServiceControllerStatus.Running) list.Add(name);
+                        using (ServiceController s = new ServiceController(name, server))
+                        {
+                            if (s.Status == ServiceControllerStatus.Running) list.Add(name);
+                        }
                     }
+                    catch (InvalidOperationException) { }
                 }
-                catch (InvalidOperationException) { }
+                return list;
             }
-            return list;
         }
 
         public void RestartService(string server, string service)
         {
-            using (ServiceController s = new ServiceController(service, server))
+            using (RunAs.Impersonate())
             {
-                if (s.Status != ServiceControllerStatus.Stopped)
+                using (ServiceController s = new ServiceController(service, server))
                 {
-                    s.Stop();
-                    s.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(60));
+                    if (s.Status != ServiceControllerStatus.Stopped)
+                    {
+                        s.Stop();
+                        s.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(60));
+                    }
+                    s.Start();
+                    s.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(60));
                 }
-                s.Start();
-                s.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(60));
             }
         }
 
@@ -589,18 +603,21 @@ namespace PxeVice
         // server, and in SMS_CCM\Logs on older versions. A path in Settings comes first.
         public string PxeLog(string server)
         {
-            List<string> candidates = new List<string>();
-            string chosen = Prefs.Get("PxeLogPath", null);
-            if (!string.IsNullOrEmpty(chosen)) candidates.Add(chosen.Replace("<server>", server));
-            candidates.Add(@"\\" + server + @"\SMS_DP$\sms\logs\SMSPXE.log");
-            candidates.Add(@"\\" + server + @"\SMS_" + info.SiteCode + @"\Logs\SMSPXE.log");
-            candidates.Add(@"\\" + server + @"\C$\Program Files\Microsoft Configuration Manager\Logs\SMSPXE.log");
-            candidates.Add(@"\\" + server + @"\C$\Program Files\SMS_CCM\Logs\SMSPXE.log");
-            foreach (string c in candidates)
+            using (RunAs.Impersonate())
             {
-                try { if (File.Exists(c)) return c; } catch (Exception) { }
+                List<string> candidates = new List<string>();
+                string chosen = Prefs.Get("PxeLogPath", null);
+                if (!string.IsNullOrEmpty(chosen)) candidates.Add(chosen.Replace("<server>", server));
+                candidates.Add(@"\\" + server + @"\SMS_DP$\sms\logs\SMSPXE.log");
+                candidates.Add(@"\\" + server + @"\SMS_" + info.SiteCode + @"\Logs\SMSPXE.log");
+                candidates.Add(@"\\" + server + @"\C$\Program Files\Microsoft Configuration Manager\Logs\SMSPXE.log");
+                candidates.Add(@"\\" + server + @"\C$\Program Files\SMS_CCM\Logs\SMSPXE.log");
+                foreach (string c in candidates)
+                {
+                    try { if (File.Exists(c)) return c; } catch (Exception) { }
+                }
+                return null;
             }
-            return null;
         }
 
         // ---------- SMSPXE.log ----------
@@ -611,37 +628,40 @@ namespace PxeVice
 
         public List<LogLine> ReadPxeLog(string server, out string note)
         {
-            note = null;
-            List<LogLine> lines = new List<LogLine>();
-            LogTail tail;
-            bool have;
-            lock (tails) have = tails.TryGetValue(server, out tail);
-            if (!have)
+            using (RunAs.Impersonate())
             {
-                string path = PxeLog(server);
-                if (path == null)
+                note = null;
+                List<LogLine> lines = new List<LogLine>();
+                LogTail tail;
+                bool have;
+                lock (tails) have = tails.TryGetValue(server, out tail);
+                if (!have)
                 {
-                    note = "SMSPXE.log was not found on " + server + ". Set where it is in Settings.";
-                    return lines;
-                }
-                string old = Path.ChangeExtension(path, ".lo_");
-                try
-                {
-                    if (File.Exists(old))
+                    string path = PxeLog(server);
+                    if (path == null)
                     {
-                        LogTail o = new LogTail(old);
-                        o.MaxRead = FirstRead / 2;
-                        lines.AddRange(o.Read());
+                        note = "SMSPXE.log was not found on " + server + ". Set where it is in Settings.";
+                        return lines;
                     }
+                    string old = Path.ChangeExtension(path, ".lo_");
+                    try
+                    {
+                        if (File.Exists(old))
+                        {
+                            LogTail o = new LogTail(old);
+                            o.MaxRead = FirstRead / 2;
+                            lines.AddRange(o.Read());
+                        }
+                    }
+                    catch (Exception) { }
+                    tail = new LogTail(path);
+                    tail.MaxRead = FirstRead;
+                    lock (tails) tails[server] = tail;
                 }
-                catch (Exception) { }
-                tail = new LogTail(path);
-                tail.MaxRead = FirstRead;
-                lock (tails) tails[server] = tail;
+                lines.AddRange(tail.Read());
+                note = tail.Note;
+                return lines;
             }
-            lines.AddRange(tail.Read());
-            note = tail.Note;
-            return lines;
         }
 
         // ---------- what PXE offers ----------

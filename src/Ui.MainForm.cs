@@ -39,8 +39,6 @@ namespace PxeVice
         readonly List<Awaited> awaiting = new List<Awaited>();
 
         bool watching;
-        // Set in Settings: close and start again with the service account.
-        public bool RestartWithAccount;
         readonly System.Windows.Forms.Timer watchTimer = new System.Windows.Forms.Timer();
 
         readonly BusyBar busyBar = new BusyBar();
@@ -666,7 +664,7 @@ namespace PxeVice
                 {
                     string where = connectFailed ? "Could not connect to " + (Prefs.Get("SiteServer", null) ?? Environment.MachineName) : "Could not read " + (s != null ? s.Info.Database + " on " + s.Info.SqlServer : "the site");
                     if (RunAs.Account != null) where += " as " + RunAs.Account;
-                    string hint = RunAs.Account != null ? " If the password of the service account is wrong, forget it in Settings and start with it again." : "";
+                    string hint = RunAs.Account != null ? " If the password of the service account is wrong, use it again in Settings and type the password." : "";
                     Banner(where + ": " + err.Message + hint, true, "Settings");
                     Status("Reading failed: " + err.Message);
                 }
@@ -1611,14 +1609,35 @@ namespace PxeVice
             ThreadPool.QueueUserWorkItem(delegate
             {
                 string path = null;
-                try { path = s.PxeLog(server); }
+                bool copy = false;
+                try
+                {
+                    path = s.PxeLog(server);
+                    // LogVice runs with your own account. With a service account, PxeVice copies the log here with it.
+                    if (path != null && RunAs.Account != null)
+                    {
+                        string dir = Path.Combine(Path.GetTempPath(), "PxeVice");
+                        Directory.CreateDirectory(dir);
+                        string local = Path.Combine(dir, server.Split('.')[0] + " SMSPXE.log");
+                        using (RunAs.Impersonate())
+                        using (FileStream src = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                        using (FileStream dst = new FileStream(local, FileMode.Create, FileAccess.Write))
+                            src.CopyTo(dst);
+                        path = local;
+                        copy = true;
+                    }
+                }
                 catch (Exception) { }
                 try
                 {
                     BeginInvoke((MethodInvoker)delegate
                     {
                         if (path == null) Status("SMSPXE.log was not found on " + server + ". Set where it is in Settings.");
-                        else OpenInLogVice(path);
+                        else
+                        {
+                            OpenInLogVice(path);
+                            if (copy) Status("Opened a copy of SMSPXE.log from " + server + ", read with " + RunAs.Account + ". Open it again for newer lines.");
+                        }
                     });
                 }
                 catch (Exception) { }
@@ -1685,15 +1704,15 @@ namespace PxeVice
                     ApplyTheme();
                 };
                 d.ShowDialog(this);
-                if (d.RestartWithAccount && !demo)
+                if (d.UseAccountNow && !demo)
                 {
                     if (string.IsNullOrEmpty(Prefs.Get(RunAs.UserPref, null)))
                     {
-                        Status("Write the service account in Settings first.");
-                        return;
+                        RunAs.Stop();
+                        Status("No service account is set, so PxeVice uses your own account.");
                     }
-                    RestartWithAccount = true;
-                    Close();
+                    else if (Program.UseAccount(this, true)) Status("Connecting as " + RunAs.Account + "…");
+                    Reconnect();
                     return;
                 }
                 Engine.RequestWindow = TimeSpan.FromHours(Math.Max(1, Prefs.GetInt("RequestHours", 24)));

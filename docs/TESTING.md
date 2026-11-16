@@ -53,11 +53,14 @@ A checklist for checking PxeVice against a real Configuration Manager site. Use 
 
 ## Service account
 
-- [ ] With an account in Settings, **Start with it now** asks for the password and starts PxeVice again. The subtitle says `as <account>`
+- [ ] With an account in Settings, **Use it now** asks for the password and connects again. The subtitle says `as <account>`
+- [ ] It works with PxeVice started as administrator, and with the Secondary Logon service stopped
 - [ ] With a supporter account that has no rights in Configuration Manager, PxeVice reads the site and SMSPXE.log through the service account
 - [ ] A reset with the service account writes `<supporter> as <account>` in the activity log
 - [ ] A wrong password shows as a failed connection with a hint to check it
-- [ ] With **Remember the password**, PxeVice starts with the account without asking. **Forget the password** makes it ask again
+- [ ] With **Remember the password**, PxeVice uses the account when it opens, without asking. **Forget the password** makes it ask again
+- [ ] **SMSPXE.log** opens a copy in LogVice, read with the account
+- [ ] `PxeVice.exe /list` uses the account when the password is remembered, and `/ownaccount` does not
 - [ ] On the site server, PxeVice says it connects with your own account
 
 ## Sites

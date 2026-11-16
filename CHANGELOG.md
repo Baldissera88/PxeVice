@@ -1,5 +1,14 @@
 # Changelog
 
+## PxeVice 0.3.1
+
+16 November 2026.
+
+- **Fixed: the service account gave "Access is denied"**. PxeVice no longer starts itself again with the account, which needed the Secondary Logon service and was refused with "Access is denied" on some PCs. It now signs in with the account for the network inside PxeVice, like `runas /netonly`: WMI gets the account directly, and the site database, SMSPXE.log and the PXE service are reached as the account
+- **Use it now** in Settings asks for the password and connects again with the account, without restarting PxeVice
+- SMSPXE.log opens in LogVice as a copy read with the service account, since LogVice runs with your own account
+- The command line uses the service account when its password is remembered. `/ownaccount` uses your own account
+
 ## PxeVice 0.3.0
 
 15 November 2026.

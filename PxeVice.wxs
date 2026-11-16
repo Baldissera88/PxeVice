@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  <Product Id="B83A65BF-9BBD-428B-8B81-629919764AE5"
+  <Product Id="17EE9FC8-CA74-43BB-A487-44E91328F796"
            Name="PxeVice"
            Language="1033"
            Codepage="1252"
-           Version="0.3.0"
+           Version="0.3.1"
            Manufacturer="Daniel L. Baldissera"
            UpgradeCode="BAC16563-96B0-438B-879E-8C73285C0DDC">
 
@@ -43,7 +43,7 @@
         <Directory Id="INSTALLDIR" Name="PxeVice">
 
           <Component Id="PxeViceExe" Guid="A1E755FC-2AFD-4F72-8543-6912377F9DAC" Win64="yes">
-            <File Id="PxeViceExe" Name="PxeVice.exe" Source="PxeVice.exe" KeyPath="yes" DefaultVersion="0.3.0.0">
+            <File Id="PxeViceExe" Name="PxeVice.exe" Source="PxeVice.exe" KeyPath="yes" DefaultVersion="0.3.1.0">
               <Shortcut Id="StartMenuShortcut"
                         Directory="ProgramMenuFolder"
                         Name="PxeVice"
