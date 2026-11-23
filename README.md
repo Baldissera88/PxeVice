@@ -131,6 +131,14 @@ Every release needs `PxeVice.msi`, `PxeVice.exe` and `SHA256SUMS.txt` for Instal
 
 Every change, and every next PXE boot after a reset, is written to `%LOCALAPPDATA%\PxeVice\PxeVice.log` in the CMTrace format, with who made it. **Open the activity log in LogVice** on the Activity tab opens it.
 
+## Themes
+
+Settings shows seven choices as tiles: **System** (follows the Windows app mode), **Light**, **Dark**, **Vice** (the default), and **Terminal**, **Amber** and **Synthwave**. Terminal and Amber have square corners and show counts in a monospace font. They are the same themes as in TrackVice. The Theme button in the toolbar steps through them, and `--theme <name>` starts PxeVice with one for that run only.
+
+![PxeVice in the Terminal theme](docs/images/pxevice-terminal.png)
+
+![PxeVice in the Synthwave theme](docs/images/pxevice-synthwave.png)
+
 ## Settings
 
 **Settings** (Ctrl+,) holds the theme, the service account, the site server, SQL Server, site database and PXE distribution points when they are not found, where SMSPXE.log is, the saved sites, whether Unknown records are deleted and the PXE service restarted by default, how often Watch reads, whether to watch after a reset or when PxeVice opens, how far back PXE boots are shown (1 hour to 3 days), and where LogVice is. They are kept in `HKCU\Software\PxeVice`.

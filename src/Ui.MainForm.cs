@@ -107,7 +107,7 @@ namespace PxeVice
             themed.Add(busyBar);
             Controls.Add(header);
             Controls.Add(statusBar);
-            theme = Theme.Named(Prefs.Get("Theme", "System"));
+            theme = Theme.Named(Program.ThemeOverride ?? Theme.SavedName());
             ApplyTheme();
             tabs.SelectedChanged += Safe.Wrap(delegate { ShowView(); });
             ShowView();
@@ -528,8 +528,8 @@ namespace PxeVice
 
         void CycleTheme()
         {
-            string[] order = { "System", "Light", "Dark", "Vice" };
-            string cur = Prefs.Get("Theme", "System");
+            string[] order = Palettes.Choices;
+            string cur = Theme.SavedName();
             int i = Array.IndexOf(order, cur);
             string next = order[(i + 1) % order.Length];
             Prefs.Set("Theme", next);
@@ -1839,7 +1839,7 @@ namespace PxeVice
             {
                 d.ThemeChanged += delegate
                 {
-                    theme = Theme.Named(Prefs.Get("Theme", "System"));
+                    theme = Theme.Named(Theme.SavedName());
                     ApplyTheme();
                 };
                 d.ShowDialog(this);

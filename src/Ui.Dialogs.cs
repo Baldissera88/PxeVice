@@ -223,19 +223,17 @@ namespace PxeVice
 
         public SettingsDialog(Theme t, SiteInfo info) : base("PxeVice settings", t)
         {
-            string[] themes = { "System", "Light", "Dark", "Vice" };
-            Segmented segTheme = new Segmented(themes);
-            int ti = Array.IndexOf(themes, Prefs.Get("Theme", "System"));
-            segTheme.Selected = ti < 0 ? 0 : ti;
+            ThemePicker segTheme = new ThemePicker(Palettes.Choices);
+            segTheme.SelectedName = Theme.SavedName();
             segTheme.Changed += Safe.Wrap(delegate
             {
-                Prefs.Set("Theme", themes[segTheme.Selected]);
-                Retheme(Theme.Named(themes[segTheme.Selected]));
+                Prefs.Set("Theme", segTheme.SelectedName);
+                Retheme(Theme.Named(segTheme.SelectedName));
                 if (ThemeChanged != null) ThemeChanged(this, EventArgs.Empty);
             });
 
             Add(new SectionTitle("Appearance"));
-            Add(new SettingRow(Glyphs2.Palette, "Theme", "Light, Dark or Vice, or follow the Windows app mode. The same themes as LogVice and PolicyVice.", segTheme));
+            Add(new SettingRow(Glyphs2.Palette, "Theme", "Vice is the default. System follows the Windows app mode. Terminal and Amber have square corners and show numbers in a monospace font. The same themes as TrackVice.", segTheme));
 
             Add(new SectionTitle("Site"));
             Add(Field(Glyphs3.Server, "Site server", "The server with the SMS Provider. Leave it empty to use this computer.", "SiteServer", info != null ? info.SiteServer : null));

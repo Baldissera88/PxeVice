@@ -1,5 +1,15 @@
 # Changelog
 
+## PxeVice 0.5.0
+
+23 November 2026.
+
+- **The themes of TrackVice**: three new themes, **Terminal** (green on black, like an old phosphor screen), **Amber** (amber on black) and **Synthwave** (dark purple with neon pink and cyan). Terminal and Amber have square corners and show the counts in a monospace font. The colours are the same as in TrackVice
+- **Vice is the default** on a new install. A theme you have chosen stays
+- Settings shows every theme as a tile with a small colour sample, instead of the four-way switch. The Theme button in the toolbar steps through all of them
+- `--theme terminal|amber|synthwave|vice|dark|light|system` starts PxeVice with a theme for that run only
+- Light's secondary text is darker and easier to read
+
 ## PxeVice 0.4.0
 
 23 November 2026.

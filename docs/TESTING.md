@@ -87,3 +87,10 @@ A checklist for checking PxeVice against a real Configuration Manager site. Use 
 - [ ] With **Install updates from PxeVice** off, there is no Install button. After turning it on, Install downloads, closes PxeVice, installs the MSI after the Windows administrator prompt and opens the new version
 - [ ] A copy run from a folder (not installed with the MSI) replaces its own PxeVice.exe and opens again
 - [ ] A release without SHA256SUMS.txt shows only the release page. `DisableUpdateInstall` set to 1 removes the Install button
+
+## Themes
+
+- [ ] Settings > Theme shows seven tiles. Choosing Terminal, Amber or Synthwave changes the whole window and every dialog at once, and the choice is kept the next time PxeVice opens
+- [ ] On a new install (no `Theme` value in `HKCU\Software\PxeVice`) PxeVice opens in Vice
+- [ ] Terminal and Amber have square corners and show the counts in a monospace font. The text is readable on the grid, the detail pane and in the dialogs
+- [ ] `PxeVice.exe --theme terminal` opens in Terminal without changing the saved theme

@@ -9,6 +9,9 @@ namespace PxeVice
     public static class Program
     {
         public const string Developer = Cli.Developer;
+        // A theme given with --theme for this run only, or null.
+        public static string ThemeOverride;
+
         public const string BuildDate = "23 November 2026";
 
         [DllImport("kernel32.dll")]
@@ -84,6 +87,21 @@ namespace PxeVice
         public static int Main(string[] args)
         {
             args = args ?? new string[0];
+            // --theme <name> (or /theme <name>) sets the theme for this run only.
+            {
+                List<string> rest = new List<string>();
+                for (int i = 0; i < args.Length; i++)
+                {
+                    string low = args[i].ToLowerInvariant();
+                    if ((low == "--theme" || low == "/theme") && i + 1 < args.Length)
+                    {
+                        string want = args[++i];
+                        if (Palettes.Find(want) != null || string.Equals(want, "system", StringComparison.OrdinalIgnoreCase)) ThemeOverride = want;
+                    }
+                    else rest.Add(args[i]);
+                }
+                args = rest.ToArray();
+            }
             if (UpdateJob.Is(args))
             {
                 // The helper of an update: PxeVice has closed, or is about to.
@@ -154,7 +172,7 @@ namespace PxeVice
             string account = Prefs.Get(RunAs.UserPref, null);
             if (string.IsNullOrEmpty(account)) return false;
             string password = Secret.Load(RunAs.PasswordPref);
-            Theme t = Theme.Named(Prefs.Get("Theme", "System"));
+            Theme t = Theme.Named(ThemeOverride ?? Theme.SavedName());
             if (password.Length == 0 || ask)
             {
                 using (NameDialog d = new NameDialog(t, "PxeVice with " + account, "Password", "The password of " + account + ". PxeVice uses the account for the network only: the site, the site database and the PXE distribution points. Cancel to go on with your own account.",

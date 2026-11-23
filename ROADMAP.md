@@ -2,7 +2,7 @@
 
 What is planned for the next versions of PxeVice.
 
-Released in 0.4.0: PxeVice tells when there is a new version and can install it. Released in 0.3.2: deleted devices are checked, the PXE service is restarted with them, and PxeVice says when the PXE point still remembers one. Released in 0.3.1: PXE boots from SMSPXE.log, the PXE check, Watch, next boot after a reset, saved sites, reports, the service account and every PXE distribution point. See CHANGELOG.md.
+Released in 0.5.0: the themes of TrackVice. Released in 0.4.0: PxeVice tells when there is a new version and can install it. Released in 0.3.2: deleted devices are checked, the PXE service is restarted with them, and PxeVice says when the PXE point still remembers one. Released in 0.3.1: PXE boots from SMSPXE.log, the PXE check, Watch, next boot after a reset, saved sites, reports, the service account and every PXE distribution point. See CHANGELOG.md.
 
 Wishes are welcome: [Discussions](https://github.com/Baldissera88/PxeVice/discussions) or an issue on GitHub.
 
@@ -67,10 +67,3 @@ Today SmartScreen says "Unknown publisher" on a downloaded PxeVice.msi, and AppL
 - Sign PxeVice.exe and PxeVice.msi in `build.sh`, `build.ps1` and the GitHub workflow, with a code signing certificate or Microsoft's signing service, and a timestamp so the signature stays valid after the certificate expires.
 - The updater checks the signature of a downloaded file as well as its checksum.
 - The README says how to trust the certificate with AppLocker or WDAC, and what SmartScreen does with a new certificate (an EV certificate is trusted at once, other certificates build a reputation over time).
-
-## 12. The themes of TrackVice
-
-- The same themes as TrackVice: Light, Dark and Vice as now, and the new **Terminal**, **Amber** and **Synthwave**, with the same colours, the square corners and monospace numbers of Terminal and Amber, and Light's darker secondary text.
-- Vice is the default on a new install, as in TrackVice.
-- Settings shows each theme as a tile with a small colour sample, instead of the four-way switch, and `--theme terminal|amber|synthwave` on the command line.
-- The palettes come from the same place as in TrackVice, so a change to a colour is made once and copied to the other tools.

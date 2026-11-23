@@ -31,6 +31,7 @@ namespace PxeVice.Tests
             PxeTests.Run();
             RunAsTests.Run();
             UpdaterTests.Run();
+            ThemeTests.Run();
             Console.WriteLine(T.Passed + " passed, " + T.Failed + " failed");
             return T.Failed == 0 ? 0 : 1;
         }
