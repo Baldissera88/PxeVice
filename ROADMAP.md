@@ -59,3 +59,18 @@ When the PXE check says that no task sequence is deployed to the machine, the fi
 
 - Check every tab, Settings and the dialogs at 900 x 600 and at 125 % and 150 % scaling, with the grid, the detail text and the buttons.
 - The toolbar folds into a "More" menu when there is no room.
+
+## 11. Signed exe and MSI
+
+Today SmartScreen says "Unknown publisher" on a downloaded PxeVice.msi, and AppLocker or WDAC need your own certificate.
+
+- Sign PxeVice.exe and PxeVice.msi in `build.sh`, `build.ps1` and the GitHub workflow, with a code signing certificate or Microsoft's signing service, and a timestamp so the signature stays valid after the certificate expires.
+- The updater checks the signature of a downloaded file as well as its checksum.
+- The README says how to trust the certificate with AppLocker or WDAC, and what SmartScreen does with a new certificate (an EV certificate is trusted at once, other certificates build a reputation over time).
+
+## 12. The themes of TrackVice
+
+- The same themes as TrackVice: Light, Dark and Vice as now, and the new **Terminal**, **Amber** and **Synthwave**, with the same colours, the square corners and monospace numbers of Terminal and Amber, and Light's darker secondary text.
+- Vice is the default on a new install, as in TrackVice.
+- Settings shows each theme as a tile with a small colour sample, instead of the four-way switch, and `--theme terminal|amber|synthwave` on the command line.
+- The palettes come from the same place as in TrackVice, so a change to a colour is made once and copied to the other tools.
