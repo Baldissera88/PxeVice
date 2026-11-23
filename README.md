@@ -199,6 +199,10 @@ On Windows, with the C# compiler that ships with .NET Framework:
 
 On Linux, with Mono and msitools: `./build.sh` builds the exe, `./package.sh` the exe and the MSI, `./tests/run.sh` runs the tests, and `./bump.sh 0.3.0` sets a new version. The GitHub workflow builds both files, runs the tests and attaches the files to a release.
 
+## Roadmap
+
+What is planned next is in [ROADMAP.md](ROADMAP.md).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
