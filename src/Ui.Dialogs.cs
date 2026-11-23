@@ -356,7 +356,7 @@ namespace PxeVice
                     catch (Exception) { }
                 });
             });
-            FlatButton bNews = SmallButton("What is new", delegate
+            FlatButton bNews = SmallButton("Update", delegate
             {
                 UpdateInfo r = Updater.Last;
                 if (r == null || !r.Newer) { checkRow.Desc = "There is no newer version to show. Press Check now."; Relayout(); return; }
@@ -419,7 +419,11 @@ namespace PxeVice
         static string UpdateText(UpdateInfo r)
         {
             if (r.Error != null) return r.Error;
-            if (r.Newer) return "PxeVice " + r.Latest + " is available. Press What is new.";
+            if (r.Newer)
+            {
+                string why = Updater.WhyNotInstall(r, Updater.IsInstalled(Program.Location));
+                return "PxeVice " + r.Latest + " is available. Press Update." + (why == null ? " It can be installed from there." : " Install is not offered: " + why);
+            }
             return "PxeVice is up to date. Checked " + Txt.Local(r.CheckedUtc) + ".";
         }
 

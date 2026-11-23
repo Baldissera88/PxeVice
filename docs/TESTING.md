@@ -86,7 +86,7 @@ A checklist for checking PxeVice against a real Configuration Manager site. Use 
 - [ ] With **Check for updates** off in Settings, or `DisableUpdateCheck` set to 1 under `HKLM\SOFTWARE\Policies\PxeVice`, nothing is asked and Check now says why
 - [ ] With **Install updates from PxeVice** off, there is no Install button. After turning it on, Install downloads, closes PxeVice, installs the MSI after the Windows administrator prompt and opens the new version
 - [ ] A copy run from a folder (not installed with the MSI) replaces its own PxeVice.exe and opens again
-- [ ] A release without SHA256SUMS.txt shows only the release page. `DisableUpdateInstall` set to 1 removes the Install button
+- [ ] A release with the MSI and exe but no SHA256SUMS.txt still offers Install (GitHub's checksum is used). A release without the MSI or exe shows the release page, and the Update page says why Install is missing. `DisableUpdateInstall` set to 1 removes the Install button
 
 ## Themes
 

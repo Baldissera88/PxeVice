@@ -106,7 +106,7 @@ The service account is only used over the network. On the site server itself the
 
 ## Updates
 
-Once a day when it opens, PxeVice asks GitHub for the latest release and shows a banner when there is a newer one. **What is new** shows the release notes, and opens the release page. Nothing about you or the site is sent: it is one request for the latest release of `Baldissera88/PxeVice`, like a browser would make. `PxeVice.exe /checkupdate` does the same from the command line.
+Once a day when it opens, PxeVice asks GitHub for the latest release and shows a banner when there is a newer one. **Update** (in the banner, and in Settings > Updates) shows the release notes and the release page, and **Install** when it can. Nothing about you or the site is sent: it is one request for the latest release of `Baldissera88/PxeVice`, like a browser would make. `PxeVice.exe /checkupdate` does the same from the command line.
 
 Installing from PxeVice is **off** until you turn on *Install updates from PxeVice* in Settings > Updates, since the MSI needs administrator rights and a supporter may not have them. When it is on, **Install** downloads the MSI (or `PxeVice.exe` when this copy was not installed with the MSI), checks it against `SHA256SUMS.txt` from the same release, closes PxeVice, installs it and opens it again. A file that does not match its checksum is deleted and not installed.
 
@@ -117,7 +117,7 @@ To turn it off for everyone, set these values on the PC, for example with a poli
 | `DisableUpdateCheck` | DWORD, 1 | No update check, and no install |
 | `DisableUpdateInstall` | DWORD, 1 | The check still runs, but there is no Install button |
 
-Every release needs `PxeVice.msi`, `PxeVice.exe` and `SHA256SUMS.txt` for Install to be offered. Without them PxeVice only shows the release page.
+Install is offered when the release has `PxeVice.msi` (or `PxeVice.exe`) and a checksum for it: `SHA256SUMS.txt` in the release, or the SHA-256 that GitHub gives for each file. Without one, PxeVice shows the release page and says why.
 
 ## Sites
 

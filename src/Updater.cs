@@ -22,6 +22,8 @@ namespace PxeVice
         public string MsiUrl;
         public string ExeUrl;
         public string SumsUrl;
+        // The SHA-256 GitHub gives for a file of the release, in lower case, when it does. Used when the release has no SHA256SUMS.txt.
+        public string MsiDigest, ExeDigest;
         public string Notes;
         public DateTime CheckedUtc;
     }
@@ -161,6 +163,7 @@ namespace PxeVice
         static readonly Regex RxUrl = new Regex("\"html_url\"\\s*:\\s*\"(https://github\\.com/" + Regex.Escape(Repo) + "/releases/tag/[^\"]+)\"", RegexOptions.IgnoreCase);
         static readonly Regex RxPre = new Regex("\"prerelease\"\\s*:\\s*true");
         static readonly Regex RxDraft = new Regex("\"draft\"\\s*:\\s*true");
+        static readonly Regex RxDigest = new Regex("\"digest\"\\s*:\\s*\"sha256:([0-9a-fA-F]{64})\"");
         static readonly Regex RxBody = new Regex("\"body\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
 
         // Reads a reply of releases/latest. Only files of this repository's own releases are taken.
@@ -175,9 +178,15 @@ namespace PxeVice
             r.Prerelease = RxPre.IsMatch(json) || RxDraft.IsMatch(json) || r.Latest.IndexOf('-') >= 0;
             r.Newer = !r.Prerelease && IsNewer(r.Latest, current);
             Regex files = new Regex("\"browser_download_url\"\\s*:\\s*\"(https://github\\.com/" + Regex.Escape(Repo) + "/releases/download/[^\"/]+/(" + Regex.Escape(MsiName) + "|" + Regex.Escape(ExeName) + "|" + Regex.Escape(SumsName) + "))\"", RegexOptions.IgnoreCase);
+            int after = 0;
             foreach (Match m in files.Matches(json))
             {
                 string name = m.Groups[2].Value;
+                string digest = null;
+                foreach (Match d in RxDigest.Matches(json.Substring(after, m.Index - after))) digest = d.Groups[1].Value.ToLowerInvariant();
+                after = m.Index + m.Length;
+                if (string.Equals(name, MsiName, StringComparison.OrdinalIgnoreCase) && r.MsiDigest == null) r.MsiDigest = digest;
+                else if (string.Equals(name, ExeName, StringComparison.OrdinalIgnoreCase) && r.ExeDigest == null) r.ExeDigest = digest;
                 if (string.Equals(name, MsiName, StringComparison.OrdinalIgnoreCase) && r.MsiUrl == null) r.MsiUrl = m.Groups[1].Value;
                 else if (string.Equals(name, ExeName, StringComparison.OrdinalIgnoreCase) && r.ExeUrl == null) r.ExeUrl = m.Groups[1].Value;
                 else if (string.Equals(name, SumsName, StringComparison.OrdinalIgnoreCase) && r.SumsUrl == null) r.SumsUrl = m.Groups[1].Value;
@@ -405,9 +414,21 @@ namespace PxeVice
             catch (Exception) { return false; }
         }
 
+        // Why this release cannot be installed from PxeVice, or null when it can.
+        public static string WhyNotInstall(UpdateInfo r, bool installed)
+        {
+            if (r == null || !r.Newer) return "There is no newer version.";
+            string blocked = InstallBlocked;
+            if (blocked != null) return blocked;
+            string name = installed ? MsiName : ExeName;
+            if ((installed ? r.MsiUrl : r.ExeUrl) == null) return "This release has no " + name + ", so PxeVice cannot install it.";
+            if (r.SumsUrl == null && (installed ? r.MsiDigest : r.ExeDigest) == null) return "This release has no " + SumsName + ", and GitHub gives no checksum for " + name + ", so PxeVice cannot check it before installing.";
+            return null;
+        }
+
         public static bool CanInstall(UpdateInfo r, bool installed)
         {
-            return r != null && r.Newer && r.SumsUrl != null && (installed ? r.MsiUrl != null : r.ExeUrl != null) && InstallBlocked == null;
+            return WhyNotInstall(r, installed) == null;
         }
 
         // Downloads SHA256SUMS.txt and the MSI or exe to a new folder and checks the hash. Returns the checked file.
@@ -417,15 +438,22 @@ namespace PxeVice
             if (blocked != null) throw new InvalidOperationException(blocked);
             string url = installed ? r.MsiUrl : r.ExeUrl;
             string name = installed ? MsiName : ExeName;
-            if (url == null || r.SumsUrl == null) throw new InvalidOperationException("This release has no " + (url == null ? name : SumsName) + " to install automatically. Download it from the release page.");
+            string why = WhyNotInstall(r, installed);
+            if (why != null) throw new InvalidOperationException(why + " Download it from the release page.");
             string dir = NewWorkFolder(UpdatesRoot, r.Latest);
-            string sumsPath = Path.Combine(dir, SumsName);
             string file = Path.Combine(dir, name);
-            Download(r.SumsUrl, sumsPath, null);
-            string sums = File.ReadAllText(sumsPath);
-            if (ExpectedHash(sums, name) == null) throw new InvalidOperationException(SumsName + " in the release does not list " + name + ".");
+            // SHA256SUMS.txt from the release first; the checksum GitHub gives for the file when the release has none.
+            string want = null;
+            if (r.SumsUrl != null)
+            {
+                string sumsPath = Path.Combine(dir, SumsName);
+                Download(r.SumsUrl, sumsPath, null);
+                want = ExpectedHash(File.ReadAllText(sumsPath), name);
+            }
+            if (want == null) want = installed ? r.MsiDigest : r.ExeDigest;
+            if (want == null) throw new InvalidOperationException(SumsName + " in the release does not list " + name + ". Download it from the release page.");
             Download(url, file, progress);
-            if (!Matches(sums, name, file))
+            if (!File.Exists(file) || FileHash(file) != want.ToLowerInvariant())
             {
                 try { File.Delete(file); } catch (Exception) { }
                 throw new InvalidOperationException("The downloaded " + name + " does not match its checksum, so it was not installed. Try again later, or download it from the release page.");

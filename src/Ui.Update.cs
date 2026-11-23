@@ -93,13 +93,12 @@ namespace PxeVice
             if (!string.IsNullOrEmpty(r.Notes)) Add(new SettingRow(Glyphs.Log, "Release notes", r.Notes, null));
 
             bool installed = Updater.IsInstalled(Program.Location);
-            string why = Updater.InstallBlocked;
+            string why = Updater.WhyNotInstall(r, installed);
             string how;
-            if (why != null) how = why + " Download the new version from the release page.";
-            else if (!Updater.CanInstall(r, installed)) how = "This release has no " + (installed ? Updater.MsiName : Updater.ExeName) + " and " + Updater.SumsName + " to install automatically. Download it from the release page.";
+            if (why != null) how = why + " You can download the new version from the release page.";
             else how = installed
-                ? "PxeVice downloads the MSI, checks it against " + Updater.SumsName + ", closes, installs it (Windows asks for administrator rights) and opens again."
-                : "This copy is not installed with the MSI. PxeVice downloads PxeVice.exe, checks it against " + Updater.SumsName + ", closes, replaces itself and opens again.";
+                ? "PxeVice downloads the MSI, checks it against the release's checksum, closes, installs it (Windows asks for administrator rights) and opens again."
+                : "This copy is not installed with the MSI. PxeVice downloads PxeVice.exe, checks it against the release's checksum, closes, replaces itself and opens again.";
             state = new SettingRow(Glyphs3.Play, "Install", how, null);
             Add(state);
 

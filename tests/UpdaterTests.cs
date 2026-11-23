@@ -105,6 +105,26 @@ namespace PxeVice.Tests
             UpdateInfo nosums = new UpdateInfo();
             Updater.Parse(Release.Replace("SHA256SUMS.txt", "Other.txt"), "0.3.2", nosums);
             T.Check(!Updater.CanInstall(nosums, true), "no checksum file, no automatic install");
+            T.Check(Updater.WhyNotInstall(nosums, true).Contains("SHA256SUMS.txt"), "says why: no checksum");
+
+            // GitHub gives a digest for each file, which is used when the release has no SHA256SUMS.txt.
+            string h1 = new string('a', 64), h2 = new string('c', 64);
+            string withDigest =
+                "{\"tag_name\":\"v0.4.0\",\"assets\":[" +
+                "{\"size\":1,\"digest\":\"sha256:" + h1 + "\",\"download_count\":0,\"browser_download_url\":\"https://github.com/Baldissera88/PxeVice/releases/download/v0.4.0/PxeVice.msi\"}," +
+                "{\"size\":2,\"digest\":\"sha256:" + h2.ToUpperInvariant() + "\",\"download_count\":0,\"browser_download_url\":\"https://github.com/Baldissera88/PxeVice/releases/download/v0.4.0/PxeVice.exe\"}]}";
+            UpdateInfo dg = new UpdateInfo();
+            Updater.Parse(withDigest, "0.3.2", dg);
+            T.Equal(h1, dg.MsiDigest, "digest of the msi");
+            T.Equal(h2, dg.ExeDigest, "digest of the exe, lower case");
+            T.Check(dg.SumsUrl == null && Updater.CanInstall(dg, true) && Updater.CanInstall(dg, false), "a digest is enough without SHA256SUMS.txt");
+            UpdateInfo nomsi = new UpdateInfo();
+            Updater.Parse(withDigest.Replace("PxeVice.msi", "Other.msi"), "0.3.2", nomsi);
+            T.Check(Updater.WhyNotInstall(nomsi, true).Contains("PxeVice.msi"), "says why: no msi");
+            T.Check(Updater.WhyNotInstall(same, true) == "There is no newer version.", "no newer version");
+            pInstall = true;
+            T.Check(Updater.WhyNotInstall(dg, true).Contains(Updater.PolicyInstall), "says why: policy");
+            pInstall = false;
         }
     }
 }

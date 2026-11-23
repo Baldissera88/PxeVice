@@ -141,7 +141,7 @@ namespace PxeVice
             if (r == null || !r.Newer || r.Error != null) return;
             // Do not take the place of a message about a reset that is waiting.
             if (banner.Visible) { Status("PxeVice " + r.Latest + " is available. Settings > Updates shows what is new."); return; }
-            Banner("PxeVice " + r.Latest + " is available. You have " + Cli.Version + ".", false, "What is new");
+            Banner("PxeVice " + r.Latest + " is available. You have " + Cli.Version + ".", false, "Update");
         }
 
         void ShowUpdate()
@@ -149,7 +149,7 @@ namespace PxeVice
             UpdateInfo r = Updater.Last;
             if (r == null || !r.Newer) return;
             using (UpdateDialog d = new UpdateDialog(theme, r)) d.ShowDialog(this);
-            if (bannerAction == "What is new" && !Updater.CanInstall(r, Updater.IsInstalled(Program.Location))) Banner(null, false, null);
+            if (bannerAction == "Update" && !Updater.CanInstall(r, Updater.IsInstalled(Program.Location))) Banner(null, false, null);
         }
 
         // ---------- building ----------
@@ -621,7 +621,7 @@ namespace PxeVice
                 Banner(null, false, null);
                 return;
             }
-            if (bannerAction == "What is new")
+            if (bannerAction == "Update")
             {
                 ShowUpdate();
                 return;
