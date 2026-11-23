@@ -321,6 +321,15 @@ namespace PxeVice
 
         // The reason a step failed, with what to do when the cause is known. Windows says only "Cannot open WDSServer
         // service on computer" when the rights are missing, and the real reason is in the inner exception.
+        // In the text Explain gives when restarting the PXE service is denied. NeedsAdmin looks for it.
+        public const string AdminHint = "needs administrator rights on";
+
+        // True for a failed change that PxeVice run as administrator might have done.
+        public static bool NeedsAdmin(Activity a)
+        {
+            return a != null && !a.Ok && a.Result != null && a.Result.IndexOf(AdminHint, StringComparison.Ordinal) >= 0;
+        }
+
         public static string Explain(Exception ex, Step s)
         {
             string text = ex == null ? "" : ex.Message;
@@ -333,7 +342,7 @@ namespace PxeVice
                 if (e != ex && e.Message.Length > 0 && text.IndexOf(e.Message, StringComparison.OrdinalIgnoreCase) < 0) text += " " + e.Message;
             }
             if (denied && s != null && s.Kind == StepKind.RestartService)
-                return text.TrimEnd('.', ' ') + ". Restarting the PXE service needs administrator rights on " + s.Server + ": start PxeVice as administrator when it runs on that server, or use a service account that is a local administrator there.";
+                return text.TrimEnd('.', ' ') + ". Restarting the PXE service " + AdminHint + " " + s.Server + ": start PxeVice as administrator when it runs on that server, or use a service account that is a local administrator there.";
             if (denied)
                 return text.TrimEnd('.', ' ') + ". The account PxeVice runs with lacks the rights for this change.";
             return text;

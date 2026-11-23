@@ -70,7 +70,7 @@ Select one or more machines and press **Reset** (Ctrl+R). PxeVice reads the site
 1. Clear the PXE flag with **Clear Required PXE Deployments**, the method the console uses
 2. Delete the device records named `Unknown` for the machine. Named devices are only deleted when you turn that on
 3. Delete the machine's rows that are still in `LastPXEAdvertisement`, such as flags of unknown computers and deleted devices
-4. Restart the PXE service (WDSServer or SccmPxe) on the PXE distribution points, when you turn that on. It turns on by itself when you delete named devices
+4. Restart the PXE service (WDSServer or SccmPxe) on the PXE distribution points, when you turn that on. On another computer this is done as the service account, which must be a local administrator there. On the PXE server itself PxeVice must run as administrator, and offers to start again as administrator when it does not. It turns on by itself when you delete named devices
 
 Deleting a named device only marks it decommissioned: it is gone from the console at once, and the site database removes it later with Delete Aged Discovery Data. PxeVice reads the site again after the deletion and says if the device is still listed. The PXE point remembers a device for a while, so a machine can be answered as the deleted device until the PXE service is restarted. If the next PXE boot is, PxeVice says so and offers to restart the service.
 

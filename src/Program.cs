@@ -45,6 +45,39 @@ namespace PxeVice
             }
         }
 
+        // Starts PxeVice again with the same arguments and the Windows prompt for administrator rights. False when the prompt was
+        // declined or PxeVice could not start; the reason is in error.
+        public static bool RelaunchAsAdmin(out string error)
+        {
+            error = null;
+            try
+            {
+                string[] all = Environment.GetCommandLineArgs();
+                System.Text.StringBuilder a = new System.Text.StringBuilder();
+                for (int i = 1; i < all.Length; i++)
+                {
+                    if (a.Length > 0) a.Append(' ');
+                    a.Append(all[i].IndexOfAny(new char[] { ' ', '\t', '"' }) >= 0 ? "\"" + all[i].Replace("\"", "\\\"") + "\"" : all[i]);
+                }
+                System.Diagnostics.ProcessStartInfo psi = new System.Diagnostics.ProcessStartInfo(Location, a.ToString());
+                psi.UseShellExecute = true;
+                psi.Verb = "runas";
+                psi.WorkingDirectory = System.IO.Path.GetDirectoryName(Location);
+                System.Diagnostics.Process.Start(psi);
+                return true;
+            }
+            catch (System.ComponentModel.Win32Exception ex)
+            {
+                error = ex.NativeErrorCode == 1223 ? "Administrator rights were not given, so PxeVice stays as it is." : "PxeVice could not start as administrator: " + ex.Message;
+                return false;
+            }
+            catch (Exception ex)
+            {
+                error = "PxeVice could not start as administrator: " + ex.Message;
+                return false;
+            }
+        }
+
         static Icon icon;
 
         public static Icon AppIcon()

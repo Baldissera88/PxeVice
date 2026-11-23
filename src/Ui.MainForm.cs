@@ -621,6 +621,13 @@ namespace PxeVice
                 Banner(null, false, null);
                 return;
             }
+            if (bannerAction == "Restart as administrator")
+            {
+                string error;
+                if (Program.RelaunchAsAdmin(out error)) Application.Exit();
+                else Status(error);
+                return;
+            }
             if (bannerAction == "Update")
             {
                 ShowUpdate();
@@ -714,7 +721,7 @@ namespace PxeVice
                 }
                 else
                 {
-                    if (bannerError) Banner(null, false, null);
+                    if (bannerError && bannerAction != "Restart as administrator") Banner(null, false, null);
                     Bind(d, quiet);
                 }
             }
@@ -940,6 +947,7 @@ namespace PxeVice
                         foreach (Awaited w in awaiting) w.Restarted = ok;
                         bannerError = false;
                         Banner(null, false, null);
+                        OfferElevation(done);
                         Status(ok ? "The PXE service was restarted on " + server + ". Boot the machine again." : "The PXE service could not be restarted on " + server + ". See the Activity tab.");
                         WaitBanner();
                     });
@@ -1537,6 +1545,25 @@ namespace PxeVice
             }
             else pendingDoneMessage = done == null || done.Count == 0 ? "Nothing was changed." : "Done: " + done.Count + (done.Count == 1 ? " change" : " changes") + ". Now boot the machine from the network: PxeVice tells what it gets.";
             Reload(false);
+            OfferElevation(done);
+        }
+
+        // When PxeVice could not restart the PXE service for want of administrator rights, the banner offers to start it again as administrator.
+        void OfferElevation(List<Activity> done)
+        {
+            if (done == null || Program.IsAdmin) return;
+            foreach (Activity a in done)
+            {
+                if (!Engine.NeedsAdmin(a)) continue;
+                Banner("The PXE service could not be restarted, because PxeVice is not running as administrator. A service account does not help on the PXE server itself.", true, "Restart as administrator");
+                return;
+            }
+            // A reset that went well takes the offer away.
+            if (bannerAction == "Restart as administrator")
+            {
+                Banner(null, false, null);
+                WaitBanner();
+            }
         }
 
         string pendingDoneMessage;

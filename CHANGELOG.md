@@ -1,5 +1,11 @@
 # Changelog
 
+## PxeVice 0.5.3
+
+23 November 2026.
+
+- **Restart as administrator**: when the PXE service cannot be restarted because PxeVice is not running as administrator, a banner says so and has a button that starts PxeVice again with the Windows prompt for administrator rights, with the same options. A service account only applies to other computers, so on the PXE server itself PxeVice needs to run as administrator. The banner goes away after a reset that went well
+
 ## PxeVice 0.5.2
 
 23 November 2026.

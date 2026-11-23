@@ -133,6 +133,15 @@ namespace PxeVice.Tests
             Step clear = new Step();
             clear.Kind = StepKind.ClearFlag;
             T.Check(Engine.Explain(new UnauthorizedAccessException("Access is denied."), clear).Contains("lacks the rights"), "access denied on another step");
+            Activity needs = new Activity();
+            needs.Ok = false;
+            needs.Result = text;
+            T.Check(Engine.NeedsAdmin(needs), "a denied service restart needs administrator rights");
+            needs.Result = "Not found";
+            T.Check(!Engine.NeedsAdmin(needs), "other failures do not");
+            needs.Ok = true;
+            needs.Result = text;
+            T.Check(!Engine.NeedsAdmin(needs), "a change that worked does not");
             T.Equal("Not found", Engine.Explain(new InvalidOperationException("Not found"), clear), "other errors keep their text");
         }
 

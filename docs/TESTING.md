@@ -94,3 +94,9 @@ A checklist for checking PxeVice against a real Configuration Manager site. Use 
 - [ ] On a new install (no `Theme` value in `HKCU\Software\PxeVice`) PxeVice opens in Vice
 - [ ] Terminal and Amber have square corners and show the counts in a monospace font. The text is readable on the grid, the detail pane and in the dialogs
 - [ ] `PxeVice.exe --theme terminal` opens in Terminal without changing the saved theme
+
+## Administrator
+
+- [ ] PxeVice started normally on the PXE server, a reset with **Restart the PXE service afterwards** fails with "Access is denied", and a banner offers **Restart as administrator**. The button asks for administrator rights and opens PxeVice again. After that a reset restarts WDSServer
+- [ ] Declining the Windows prompt leaves PxeVice as it is and says so in the status line
+- [ ] A reset that went well takes the banner away
