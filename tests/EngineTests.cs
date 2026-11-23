@@ -157,6 +157,7 @@ namespace PxeVice.Tests
             bool said = false;
             foreach (Activity a in done) if (a.Action.StartsWith("Delete the device")) { said = true; T.Check(a.Ok, "delete ok"); T.Equal("Deleted (decommissioned)", a.Result, "delete says decommissioned"); }
             T.Check(said, "a delete step ran");
+            foreach (Step st in p.Steps) T.Equal(st.Kind == StepKind.DeleteDevice, st.HighRisk, "only a device deletion is high risk (" + st.Kind + ")");
 
             DemoSite slow = new DemoSite(Now);
             slow.KeepDeleted = true;

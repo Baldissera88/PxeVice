@@ -334,7 +334,7 @@ namespace PxeVice
                     "No task sequence deployment targets a collection " + who + (unknown ? " are" : " is") + " in" + (collections.Count > 0 ? " (" + collections.Count + (collections.Count == 1 ? " collection" : " collections") + ")" : "") + ".",
                     unknown ? "Deploy a task sequence to All Unknown Computers, or a collection with them, and make it available to Configuration Manager clients, media and PXE." :
                         devices.TrueForAll(delegate (DeviceRecord d) { return d.IsUnknownRecord; }) ? "Reset the machine so the Unknown record is deleted and it boots as an unknown computer." :
-                        "Add the device to a collection with a task sequence deployment, or delete the device record so it boots as an unknown computer.");
+                        "Add the device to a collection with a task sequence deployment. Or, as a last resort and high risk, delete the device from the site so it boots as an unknown computer: it loses its collection memberships. Make sure a task sequence is deployed to All Unknown Computers first.");
                 foreach (string c in collections) x.Evidence.Add("Member of " + c);
                 list.Add(x);
                 return;

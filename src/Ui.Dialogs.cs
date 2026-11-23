@@ -12,6 +12,7 @@ namespace PxeVice
     {
         readonly List<string> steps = new List<string>();
         readonly List<string> notes = new List<string>();
+        readonly List<bool> risky = new List<bool>();
         public string EmptyText = "Nothing to change.";
 
         public StepList()
@@ -22,9 +23,17 @@ namespace PxeVice
 
         public void Set(IEnumerable<string> stepTexts, IEnumerable<string> noteTexts)
         {
+            Set(stepTexts, null, noteTexts);
+        }
+
+        public void Set(IEnumerable<string> stepTexts, IEnumerable<bool> highRisk, IEnumerable<string> noteTexts)
+        {
             steps.Clear();
             notes.Clear();
+            risky.Clear();
             steps.AddRange(stepTexts);
+            if (highRisk != null) risky.AddRange(highRisk);
+            while (risky.Count < steps.Count) risky.Add(false);
             notes.AddRange(noteTexts);
             Invalidate();
         }
@@ -65,10 +74,11 @@ namespace PxeVice
                 int h = RowH(steps[i], Width);
                 int d = Dpi.S(22);
                 Rectangle badge = new Rectangle(Dpi.S(24), y + Dpi.S(5), d, d);
-                Shapes.Fill(g, badge, d / 2f, T.AccentSoft);
-                Draw.Text(g, (i + 1).ToString(CultureInfo.InvariantCulture), Fonts.SmallSemibold, badge, T.Text, Draw.Line | TextFormatFlags.HorizontalCenter);
+                bool hot = risky[i];
+                Shapes.Fill(g, badge, d / 2f, hot ? T.ErrBg : T.AccentSoft);
+                Draw.Text(g, (i + 1).ToString(CultureInfo.InvariantCulture), Fonts.SmallSemibold, badge, hot ? T.ErrFg : T.Text, Draw.Line | TextFormatFlags.HorizontalCenter);
                 int th = Draw.WrapHeight(steps[i], Fonts.Ui, tw);
-                Draw.Text(g, steps[i], Fonts.Ui, new Rectangle(tx, y + Dpi.S(6) + Math.Max(0, (d - Fonts.Ui.Height) / 2), tw, th + 2), T.Text, Draw.Wrap);
+                Draw.Text(g, steps[i], Fonts.Ui, new Rectangle(tx, y + Dpi.S(6) + Math.Max(0, (d - Fonts.Ui.Height) / 2), tw, th + 2), hot ? T.ErrFg : T.Text, Draw.Wrap);
                 y += h;
             }
             foreach (string n in notes)
@@ -120,7 +130,18 @@ namespace PxeVice
             foreach (Toggle x in new Toggle[] { tUnknown, tDevices, tRestart }) x.Changed += Safe.Wrap(delegate { Refill(); });
             Add(new SectionTitle("Options"));
             Add(new SettingRow(Glyphs3.Delete, "Delete Unknown device records", "Records named Unknown are left behind when a task sequence fails on an unknown computer. While one exists the machine is known, so it no longer gets deployments for Unknown Computers.", tUnknown));
-            Add(new SettingRow(Glyphs2.Device, "Delete named device records too", "Only when the machine should start over as a new computer. A deleted device loses its collection memberships, and comes back with its next discovery or client registration. The site marks it decommissioned: it is gone from the console at once, and removed from the database later.", tDevices));
+            // A known device with no deployment never gets the deployment for Unknown Computers. Deleting it makes it unknown.
+            List<string> noDeployment = new List<string>();
+            foreach (Machine m in machines) if (m.HasNamedDevice && m.NotServiced) noDeployment.Add(m.Name);
+            if (noDeployment.Count > 0)
+            {
+                string who = string.Join(", ", noDeployment.ToArray());
+                Add(new SettingRow(Glyphs.Info, "No deployment reaches " + who, "The last PXE boot found no task sequence for " + (noDeployment.Count == 1 ? "this device" : "these devices") + ", because the site knows " + (noDeployment.Count == 1 ? "it" : "them") + " and nothing is deployed to " + (noDeployment.Count == 1 ? "it" : "them") + ". Either deploy a task sequence to a collection " + (noDeployment.Count == 1 ? "it is" : "they are") + " in, or delete the device below: then the PXE boot is handled as an unknown computer, by the deployment to All Unknown Computers. That deployment must exist.", null));
+            }
+            SettingRow danger = new SettingRow(Glyphs3.Delete, "Delete the device from ConfigMgr", "The device object is deleted from the site, so the next PXE boot is an unknown computer and gets the deployment for All Unknown Computers. It loses its collection memberships, deployments, variables and history, and the console shows it gone at once. A client that is still installed registers again later. PxeVice cannot bring it back. Turn it on only for the machine that should start over.", tDevices);
+            danger.Danger = true;
+            danger.RiskTag = "High risk";
+            Add(danger);
             string pxe = info.PxeServers.Count == 0 ? "No PXE distribution point is known. Add one in Settings." : "Flushes the PXE cache on " + string.Join(", ", info.PxeServers.ToArray()) + ". Turned on with the deletion of a device, since the PXE point remembers it for a while. Otherwise only needed when SMSPXE.log still says the device is not serviced after a reset.";
             Add(new SettingRow(Glyphs3.Network, "Restart the PXE service afterwards", pxe, tRestart));
 
@@ -140,6 +161,14 @@ namespace PxeVice
             bReset.ApplyTheme(t);
             bReset.Click += Safe.Wrap(delegate
             {
+                List<string> doomed = new List<string>();
+                foreach (Step s in Chosen.Steps) if (s.HighRisk) doomed.Add(s.Target);
+                if (doomed.Count > 0)
+                {
+                    string q = "Delete " + (doomed.Count == 1 ? "this device" : doomed.Count + " devices") + " from ConfigMgr?\n\n" + string.Join("\n", doomed.ToArray()) +
+                        "\n\nThe device loses its collection memberships, deployments and variables. PxeVice cannot undo this.";
+                    if (MessageBox.Show(this, q, "PxeVice: high risk", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes) return;
+                }
                 Prefs.SetBool("DeleteUnknown", tUnknown.On);
                 if (!tDevices.On) Prefs.SetBool("RestartPxe", tRestart.On);
                 DialogResult = DialogResult.OK;
@@ -183,9 +212,10 @@ namespace PxeVice
         {
             Plan p = Chosen;
             List<string> texts = new List<string>();
-            foreach (Step s in p.Steps) texts.Add(s.Text);
+            List<bool> hot = new List<bool>();
+            foreach (Step s in p.Steps) { texts.Add(s.HighRisk ? "High risk: " + s.Text + ", with its collection memberships" : s.Text); hot.Add(s.HighRisk); }
             list.EmptyText = "Nothing is left to change for " + (machineCount == 1 ? "this machine." : "these machines.");
-            list.Set(texts, p.Notes);
+            list.Set(texts, hot, p.Notes);
             bReset.Enabled = p.Steps.Count > 0;
             bReset.Text = p.Steps.Count == 0 ? "Reset" : "Reset (" + p.Steps.Count + (p.Steps.Count == 1 ? " change)" : " changes)");
             bReset.AutoWidth();

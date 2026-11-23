@@ -1,5 +1,13 @@
 # Changelog
 
+## PxeVice 0.6.0
+
+23 November 2026.
+
+- **Delete a device that has no deployment, shown as high risk**: when a device is in the site but no task sequence is deployed to it, the last PXE boot is "Not serviced". Deleting the device makes the next PXE boot an unknown computer, so the deployment to All Unknown Computers applies. The reset dialog now says this for the machine, and the option **Delete the device from ConfigMgr** is red with a **High risk** tag, off by default
+- The step in the list of changes is red and says it also removes the collection memberships. Pressing Reset with a device deletion asks one more time, with the device names, and No is the default
+- The check says the same: deleting the device is a last resort, and a task sequence must be deployed to All Unknown Computers first
+
 ## PxeVice 0.5.3
 
 23 November 2026.

@@ -314,6 +314,9 @@ namespace PxeVice
         Theme theme = Theme.Light();
         public string Glyph, Title, Desc, Value;
         public bool MonoDesc;
+        // A change that cannot be undone: the row is red and carries a tag after the title.
+        public bool Danger;
+        public string RiskTag;
         public readonly Control Accessory;
 
         public SettingRow(string glyph, string title, string desc, Control right)
@@ -375,14 +378,26 @@ namespace PxeVice
             g.Clear(Parent != null ? Parent.BackColor : theme.Bg);
             Draw.Card(g, ClientRectangle, theme);
             int s = Dpi.S(20);
-            Draw.Glyph(g, Glyph, new Rectangle(Dpi.S(18), (Height - s) / 2, s, s), theme.Text2);
+            if (Danger)
+            {
+                using (SolidBrush bar = new SolidBrush(theme.ErrFg)) g.FillRectangle(bar, 0, Dpi.S(8), Dpi.S(4), Height - Dpi.S(16));
+            }
+            Draw.Glyph(g, Glyph, new Rectangle(Dpi.S(18), (Height - s) / 2, s, s), Danger ? theme.ErrFg : theme.Text2);
             int tx = TextX();
             int tw = Math.Max(Dpi.S(80), Width - tx - RightW(Width));
             int th = Fonts.Ui.Height;
             int dh = string.IsNullOrEmpty(Desc) ? 0 : Draw.WrapHeight(Desc, DescFont, tw);
             int block = th + (dh > 0 ? Dpi.S(2) + dh : 0);
             int y = (Height - block) / 2;
-            Draw.Text(g, Title, Fonts.Ui, new Rectangle(tx, y, tw, th), theme.Text, Draw.Line);
+            Draw.Text(g, Title, Danger ? Fonts.UiSemibold : Fonts.Ui, new Rectangle(tx, y, tw, th), Danger ? theme.ErrFg : theme.Text, Draw.Line);
+            if (Danger && !string.IsNullOrEmpty(RiskTag))
+            {
+                int w = Draw.Measure(Title, Danger ? Fonts.UiSemibold : Fonts.Ui).Width + Dpi.S(10);
+                Size ts = Draw.Measure(RiskTag, Fonts.SmallSemibold);
+                Rectangle tr = new Rectangle(tx + w, y + (th - ts.Height - Dpi.S(4)) / 2, ts.Width + Dpi.S(14), ts.Height + Dpi.S(4));
+                Shapes.Fill(g, tr, tr.Height / 2f, theme.ErrBg);
+                Draw.Text(g, RiskTag, Fonts.SmallSemibold, tr, theme.ErrFg, Draw.Line | TextFormatFlags.HorizontalCenter);
+            }
             if (dh > 0) Draw.Text(g, Desc, DescFont, new Rectangle(tx, y + th + Dpi.S(2), tw, dh + 2), theme.Text2, Draw.Wrap);
             if (Accessory == null && !string.IsNullOrEmpty(Value))
             {

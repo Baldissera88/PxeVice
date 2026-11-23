@@ -100,3 +100,10 @@ A checklist for checking PxeVice against a real Configuration Manager site. Use 
 - [ ] PxeVice started normally on the PXE server, a reset with **Restart the PXE service afterwards** fails with "Access is denied", and a banner offers **Restart as administrator**. The button asks for administrator rights and opens PxeVice again. After that a reset restarts WDSServer
 - [ ] Declining the Windows prompt leaves PxeVice as it is and says so in the status line
 - [ ] A reset that went well takes the banner away
+
+## Deleting a device (high risk)
+
+- Reset a machine that is Not serviced and has a device record: the dialog explains that no deployment reaches it
+- "Delete the device from ConfigMgr" is red, tagged High risk, and off
+- Turn it on: the step in the list is red, and the PXE service restart turns on
+- Press Reset: a question names the device, and No is the default. No keeps the dialog open and changes nothing

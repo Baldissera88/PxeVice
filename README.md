@@ -68,7 +68,7 @@ Each finding says what happened, what to do, and the evidence: the log lines, th
 Select one or more machines and press **Reset** (Ctrl+R). PxeVice reads the site again and shows every change before it makes them:
 
 1. Clear the PXE flag with **Clear Required PXE Deployments**, the method the console uses
-2. Delete the device records named `Unknown` for the machine. Named devices are only deleted when you turn that on
+2. Delete the device records named `Unknown` for the machine. Named devices are only deleted when you turn on **Delete the device from ConfigMgr**, which is marked high risk, and PxeVice asks again before it does. Use it for a device that exists but has no deployment: it then boots as an unknown computer and gets the deployment for All Unknown Computers. The device loses its collection memberships, deployments and variables
 3. Delete the machine's rows that are still in `LastPXEAdvertisement`, such as flags of unknown computers and deleted devices
 4. Restart the PXE service (WDSServer or SccmPxe) on the PXE distribution points, when you turn that on. On another computer this is done as the service account, which must be a local administrator there. On the PXE server itself PxeVice must run as administrator, and offers to start again as administrator when it does not. It turns on by itself when you delete named devices
 

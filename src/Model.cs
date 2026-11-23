@@ -240,6 +240,12 @@ namespace PxeVice
         public string Server;
         public string Service;
 
+        // Deleting a device from the site cannot be undone from PxeVice.
+        public bool HighRisk
+        {
+            get { return Kind == StepKind.DeleteDevice; }
+        }
+
         public string Text
         {
             get
@@ -248,7 +254,7 @@ namespace PxeVice
                 {
                     case StepKind.ClearFlag: return "Clear the PXE flag on " + Target + " with Clear Required PXE Deployments";
                     case StepKind.DeleteUnknownRecord: return "Delete the leftover device record " + Target;
-                    case StepKind.DeleteDevice: return "Delete the device record " + Target;
+                    case StepKind.DeleteDevice: return "Delete the device " + Target + " from the site";
                     case StepKind.DeleteFlagRows: return "Delete " + Rows + (Rows == 1 ? " row" : " rows") + " for " + Target + " from LastPXEAdvertisement";
                     case StepKind.RestartService: return "Restart " + Service + " on " + Server;
                 }
