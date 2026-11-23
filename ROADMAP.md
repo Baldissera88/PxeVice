@@ -2,7 +2,7 @@
 
 What is planned for the next versions of PxeVice.
 
-Released in 0.3.2: deleted devices are checked, the PXE service is restarted with them, and PxeVice says when the PXE point still remembers one. Released in 0.3.1: PXE boots from SMSPXE.log, the PXE check, Watch, next boot after a reset, saved sites, reports, the service account and every PXE distribution point. See CHANGELOG.md.
+Released in 0.4.0: PxeVice tells when there is a new version and can install it. Released in 0.3.2: deleted devices are checked, the PXE service is restarted with them, and PxeVice says when the PXE point still remembers one. Released in 0.3.1: PXE boots from SMSPXE.log, the PXE check, Watch, next boot after a reset, saved sites, reports, the service account and every PXE distribution point. See CHANGELOG.md.
 
 Wishes are welcome: [Discussions](https://github.com/Baldissera88/PxeVice/discussions) or an issue on GitHub.
 

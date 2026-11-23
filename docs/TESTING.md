@@ -78,3 +78,12 @@ A checklist for checking PxeVice against a real Configuration Manager site. Use 
 - [ ] `/report <file.html> /mac <mac>` saves the report
 - [ ] `/reset /mac <mac> /whatif` lists the changes and changes nothing
 - [ ] `/reset /mac <mac>` resets the machine
+
+## Updates
+
+- [ ] On a PC with internet and an older PxeVice, a banner says a newer version is available, and **What is new** shows the release notes
+- [ ] `PxeVice.exe /checkupdate` says the same and prints the release link; on the newest version it says it is up to date
+- [ ] With **Check for updates** off in Settings, or `DisableUpdateCheck` set to 1 under `HKLM\SOFTWARE\Policies\PxeVice`, nothing is asked and Check now says why
+- [ ] With **Install updates from PxeVice** off, there is no Install button. After turning it on, Install downloads, closes PxeVice, installs the MSI after the Windows administrator prompt and opens the new version
+- [ ] A copy run from a folder (not installed with the MSI) replaces its own PxeVice.exe and opens again
+- [ ] A release without SHA256SUMS.txt shows only the release page. `DisableUpdateInstall` set to 1 removes the Install button

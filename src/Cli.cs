@@ -57,6 +57,7 @@ namespace PxeVice
             new string[] { "/removedevice", "Also delete named device records that match" },
             new string[] { "/keepunknown", "Do not delete device records named Unknown" },
             new string[] { "/restartpxe", "Restart the PXE service afterwards (on by default with /removedevice)" },
+            new string[] { "/checkupdate", "Ask GitHub if there is a newer PxeVice" },
             new string[] { "/keeppxe", "Do not restart the PXE service, also with /removedevice" },
             new string[] { "/use <name>", "Use a site saved in PxeVice" },
             new string[] { "/ownaccount", "Use your own account, not the service account from Settings" },
@@ -80,7 +81,7 @@ namespace PxeVice
             bool list = false, reset = false, whatIf = false, demo = false, check = false, requests = false;
             string mac = null, guid = null, name = null, report = null;
             int hours = 24;
-            bool ownAccount = false, keepPxe = false;
+            bool ownAccount = false, keepPxe = false, checkUpdate = false;
             ResetOptions ro = new ResetOptions();
             SiteOptions so = SiteOptions.FromPrefs();
             try
@@ -124,6 +125,7 @@ namespace PxeVice
                         case "keepunknown": ro.DeleteUnknownRecords = false; break;
                         case "restartpxe": ro.RestartPxeService = true; break;
                         case "keeppxe": keepPxe = true; break;
+                        case "checkupdate": checkUpdate = true; break;
                         case "site": so.SiteServer = Next(args, ref i); break;
                         case "sql": so.SqlServer = Next(args, ref i); break;
                         case "db": so.Database = Next(args, ref i); break;
@@ -134,6 +136,7 @@ namespace PxeVice
                         default: throw new ArgumentException("Unknown option: " + args[i]);
                     }
                 }
+                if (checkUpdate) return CheckUpdate();
                 if (!list && !reset && !check && !requests && report == null)
                 {
                     Usage();
@@ -261,6 +264,23 @@ namespace PxeVice
             string title = list.Count == 1 ? "PXE check of " + list[0].Name : "PXE check of " + list.Count + " machines";
             System.IO.File.WriteAllText(file, Report.Html(site.Info, list, checks, null, DateTime.UtcNow, title), new System.Text.UTF8Encoding(false));
             Console.WriteLine("Saved " + file);
+            return 0;
+        }
+
+        static int CheckUpdate()
+        {
+            UpdateInfo r = Updater.Check();
+            if (r.Error != null)
+            {
+                Console.WriteLine(r.Error);
+                return 1;
+            }
+            if (r.Newer)
+            {
+                Console.WriteLine("PxeVice " + r.Latest + " is available. You have " + Version + ".");
+                Console.WriteLine(r.Url);
+            }
+            else Console.WriteLine("PxeVice " + Version + " is up to date.");
             return 0;
         }
 

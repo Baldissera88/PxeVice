@@ -1,5 +1,14 @@
 # Changelog
 
+## PxeVice 0.4.0
+
+23 November 2026.
+
+- **PxeVice tells when there is a new version**: once a day when it opens, it asks GitHub for the latest release of PxeVice and shows a banner when there is a newer one, with **What is new**: the release notes, a **Release page** button and, when installing is turned on, **Install**. Nothing about you or the site is sent. `/checkupdate` on the command line does the same check
+- **Install from PxeVice** is off until it is turned on in Settings > Updates. PxeVice then downloads the MSI (or `PxeVice.exe` when it is not installed with the MSI), checks it against `SHA256SUMS.txt` from the release, closes, installs and opens again. The MSI asks for administrator rights, so a supporter without them uses the release page
+- **Settings > Updates**: turn the check on or off, turn Install on or off, Check now and What is new
+- **For the organization**: the policy value `DisableUpdateCheck` under `HKLM\SOFTWARE\Policies\PxeVice` turns the check off for everyone, and `DisableUpdateInstall` turns Install off. Each release must have `PxeVice.msi`, `PxeVice.exe` and `SHA256SUMS.txt` for Install to be offered
+
 ## PxeVice 0.3.2
 
 23 November 2026.

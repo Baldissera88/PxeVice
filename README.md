@@ -104,6 +104,21 @@ The password can be remembered for the supporter's Windows user, encrypted with 
 
 The service account is only used over the network. On the site server itself the connections are local and use the supporter's own account, so run PxeVice from another PC. The command line uses the account when its password is remembered; `/ownaccount` uses your own account. SMSPXE.log opens in LogVice as a copy read with the account, since LogVice runs with your own account.
 
+## Updates
+
+Once a day when it opens, PxeVice asks GitHub for the latest release and shows a banner when there is a newer one. **What is new** shows the release notes, and opens the release page. Nothing about you or the site is sent: it is one request for the latest release of `Baldissera88/PxeVice`, like a browser would make. `PxeVice.exe /checkupdate` does the same from the command line.
+
+Installing from PxeVice is **off** until you turn on *Install updates from PxeVice* in Settings > Updates, since the MSI needs administrator rights and a supporter may not have them. When it is on, **Install** downloads the MSI (or `PxeVice.exe` when this copy was not installed with the MSI), checks it against `SHA256SUMS.txt` from the same release, closes PxeVice, installs it and opens it again. A file that does not match its checksum is deleted and not installed.
+
+To turn it off for everyone, set these values on the PC, for example with a policy:
+
+| Value in `HKLM\SOFTWARE\Policies\PxeVice` | Type | Effect |
+|---|---|---|
+| `DisableUpdateCheck` | DWORD, 1 | No update check, and no install |
+| `DisableUpdateInstall` | DWORD, 1 | The check still runs, but there is no Install button |
+
+Every release needs `PxeVice.msi`, `PxeVice.exe` and `SHA256SUMS.txt` for Install to be offered. Without them PxeVice only shows the release page.
+
 ## Sites
 
 **Site** in the toolbar switches between saved sites, such as one per customer. **Save this site as** keeps the site server, the site database, the PXE distribution points and where SMSPXE.log is under a name. On the command line, `/use <name>` uses a saved site.
@@ -142,6 +157,7 @@ PxeVice.exe /reset /mac <mac>          Reset a machine. Also with /guid <guid> o
   /keepunknown                         Do not delete device records named Unknown
   /restartpxe                          Restart the PXE service afterwards (on by default with /removedevice)
   /keeppxe                             Do not restart the PXE service, also with /removedevice
+  /checkupdate                         Ask GitHub if there is a newer PxeVice
 
   /use <name>                          Use a site saved in PxeVice
   /site <server>                       The site server with the SMS Provider (default: this computer or Settings)
@@ -174,7 +190,7 @@ A MAC address can be written with colons, dashes or nothing in between. The exit
 
 ## Privacy and safety
 
-Reading, watching, the PXE check and reports change nothing. PxeVice talks to the SMS Provider, the site database and the PXE distribution points you name, and to nothing else.
+Reading, watching, the PXE check and reports change nothing. PxeVice talks to the SMS Provider, the site database and the PXE distribution points you name, and, once a day, to GitHub to ask for the latest release (turn it off in Settings > Updates or with a policy value). It talks to nothing else.
 
 A service account's password is only kept when you choose to, encrypted with DPAPI for your Windows user in `HKCU\Software\PxeVice`. A supporter who can start PxeVice with the account can do everything the account can do, so give it only the rights in [Requirements](#requirements).
 

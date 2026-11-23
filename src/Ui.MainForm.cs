@@ -118,7 +118,38 @@ namespace PxeVice
             {
                 Reload(false);
                 if (Prefs.GetBool("WatchOnStart", false)) SetWatch(true);
+                if (!demo) StartUpdateCheck();
             });
+        }
+
+        // ---------- updates ----------
+
+        // Once a day at the most: asks GitHub for the latest release and says so when there is a newer one.
+        void StartUpdateCheck()
+        {
+            Updater.CleanUp(Program.Location);
+            if (Updater.CheckBlocked != null || !Updater.DueAt(DateTime.UtcNow)) return;
+            Updater.CheckAsync(delegate (UpdateInfo r)
+            {
+                try { BeginInvoke((MethodInvoker)delegate { UpdateChecked(r); }); }
+                catch (Exception) { }
+            });
+        }
+
+        void UpdateChecked(UpdateInfo r)
+        {
+            if (r == null || !r.Newer || r.Error != null) return;
+            // Do not take the place of a message about a reset that is waiting.
+            if (banner.Visible) { Status("PxeVice " + r.Latest + " is available. Settings > Updates shows what is new."); return; }
+            Banner("PxeVice " + r.Latest + " is available. You have " + Cli.Version + ".", false, "What is new");
+        }
+
+        void ShowUpdate()
+        {
+            UpdateInfo r = Updater.Last;
+            if (r == null || !r.Newer) return;
+            using (UpdateDialog d = new UpdateDialog(theme, r)) d.ShowDialog(this);
+            if (bannerAction == "What is new" && !Updater.CanInstall(r, Updater.IsInstalled(Program.Location))) Banner(null, false, null);
         }
 
         // ---------- building ----------
@@ -588,6 +619,11 @@ namespace PxeVice
             {
                 awaiting.Clear();
                 Banner(null, false, null);
+                return;
+            }
+            if (bannerAction == "What is new")
+            {
+                ShowUpdate();
                 return;
             }
             if (bannerAction == "Restart PXE service")

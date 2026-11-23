@@ -9,7 +9,7 @@ namespace PxeVice
     public static class Program
     {
         public const string Developer = Cli.Developer;
-        public const string BuildDate = "16 November 2026";
+        public const string BuildDate = "23 November 2026";
 
         [DllImport("kernel32.dll")]
         static extern bool AttachConsole(int pid);
@@ -84,6 +84,25 @@ namespace PxeVice
         public static int Main(string[] args)
         {
             args = args ?? new string[0];
+            if (UpdateJob.Is(args))
+            {
+                // The helper of an update: PxeVice has closed, or is about to.
+                try { SetProcessDPIAware(); } catch (Exception) { }
+                try
+                {
+                    Application.EnableVisualStyles();
+                    Application.SetCompatibleTextRenderingDefault(false);
+                }
+                catch (InvalidOperationException) { }
+                try
+                {
+                    using (Graphics g = Graphics.FromHwnd(IntPtr.Zero)) Dpi.Scale = Math.Max(1f, g.DpiX / 96f);
+                }
+                catch (Exception) { }
+                UpdateJob job = new UpdateJob(args);
+                Application.Run(new UpdateWindow(job));
+                return job.Result;
+            }
             bool demo = false;
             foreach (string a in args ?? new string[0]) if (Cli.IsDemo(a)) demo = true;
             bool cli = false;

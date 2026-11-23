@@ -340,6 +340,36 @@ namespace PxeVice
             Add(new SettingRow(Glyphs3.Delete, "Delete Unknown device records", "Turned on when the reset page opens. Named device records are never deleted unless you turn that on for the reset.", unknown));
             Add(new SettingRow(Glyphs3.Network, "Restart the PXE service", "Turned on when the reset page opens.", restart));
 
+            Toggle checkUpdates = new Toggle();
+            checkUpdates.On = Updater.CheckOn;
+            checkUpdates.Changed += Safe.Wrap(delegate { Updater.CheckOn = checkUpdates.On; });
+            Toggle installUpdates = new Toggle();
+            installUpdates.On = Updater.InstallOn;
+            installUpdates.Changed += Safe.Wrap(delegate { Updater.InstallOn = installUpdates.On; });
+            SettingRow checkRow = null;
+            FlatButton bNow = SmallButton("Check now", delegate
+            {
+                if (Updater.CheckBlocked != null) { checkRow.Desc = Updater.CheckBlocked; Relayout(); return; }
+                checkRow.Desc = "Asking GitHub\u2026";
+                Relayout();
+                Updater.CheckAsync(delegate (UpdateInfo r)
+                {
+                    try { BeginInvoke((MethodInvoker)delegate { checkRow.Desc = UpdateText(r); Relayout(); }); }
+                    catch (Exception) { }
+                });
+            });
+            FlatButton bNews = SmallButton("What is new", delegate
+            {
+                UpdateInfo r = Updater.Last;
+                if (r == null || !r.Newer) { checkRow.Desc = "There is no newer version to show. Press Check now."; Relayout(); return; }
+                using (UpdateDialog d = new UpdateDialog(theme, r)) d.ShowDialog(this);
+            });
+            Add(new SectionTitle("Updates"));
+            Add(new SettingRow(Glyphs3.Network, "Check for updates", "Once a day when PxeVice opens, it asks GitHub for the latest release of PxeVice and says when there is a newer one. Nothing about you or the site is sent. The policy value " + Updater.PolicyCheck + " under HKLM\\" + Updater.PolicyKey + " turns it off for everyone.", checkUpdates));
+            Add(new SettingRow(Glyphs3.Play, "Install updates from PxeVice", "Shows an Install button for a new version. PxeVice downloads the MSI (or the exe when it is not installed), checks it against SHA256SUMS.txt, closes, installs and opens again. The MSI asks for administrator rights. The policy value " + Updater.PolicyInstall + " turns it off for everyone.", installUpdates));
+            checkRow = new SettingRow(Glyphs.Info, "Version " + Cli.Version, LastCheckText(), new ButtonStrip(bNow, bNews));
+            Add(checkRow);
+
             FlatButton bBrowse = SmallButton("Browse", delegate { Browse(); });
             FlatButton bClear = SmallButton("Clear", delegate
             {
@@ -378,6 +408,21 @@ namespace PxeVice
                 SiteChanged = true;
             });
             return new SettingRow(glyph, title, desc, box);
+        }
+
+        static string LastCheckText()
+        {
+            DateTime? last = Updater.LastChecked;
+            if (Updater.CheckBlocked != null) return Updater.CheckBlocked;
+            if (Updater.Last != null) return UpdateText(Updater.Last);
+            return last.HasValue ? "Last checked " + Txt.Local(last.Value) + "." : "Not checked yet.";
+        }
+
+        static string UpdateText(UpdateInfo r)
+        {
+            if (r.Error != null) return r.Error;
+            if (r.Newer) return "PxeVice " + r.Latest + " is available. Press What is new.";
+            return "PxeVice is up to date. Checked " + Txt.Local(r.CheckedUtc) + ".";
         }
 
         void UpdateLogVice()
