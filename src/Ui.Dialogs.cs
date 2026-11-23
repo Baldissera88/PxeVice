@@ -115,11 +115,13 @@ namespace PxeVice
             tUnknown.On = Prefs.GetBool("DeleteUnknown", true);
             tDevices.On = false;
             tRestart.On = Prefs.GetBool("RestartPxe", false);
+            // A deleted device is still remembered by the PXE point, so deleting one turns the restart on. It can be turned off again.
+            tDevices.Changed += Safe.Wrap(delegate { if (tDevices.On && !tRestart.On) tRestart.On = true; });
             foreach (Toggle x in new Toggle[] { tUnknown, tDevices, tRestart }) x.Changed += Safe.Wrap(delegate { Refill(); });
             Add(new SectionTitle("Options"));
             Add(new SettingRow(Glyphs3.Delete, "Delete Unknown device records", "Records named Unknown are left behind when a task sequence fails on an unknown computer. While one exists the machine is known, so it no longer gets deployments for Unknown Computers.", tUnknown));
-            Add(new SettingRow(Glyphs2.Device, "Delete named device records too", "Only when the machine should start over as a new computer. A deleted device loses its collection memberships, and comes back with its next discovery or client registration.", tDevices));
-            string pxe = info.PxeServers.Count == 0 ? "No PXE distribution point is known. Add one in Settings." : "Flushes the PXE cache on " + string.Join(", ", info.PxeServers.ToArray()) + ". Needed only when SMSPXE.log still says the device is not serviced after a reset.";
+            Add(new SettingRow(Glyphs2.Device, "Delete named device records too", "Only when the machine should start over as a new computer. A deleted device loses its collection memberships, and comes back with its next discovery or client registration. The site marks it decommissioned: it is gone from the console at once, and removed from the database later.", tDevices));
+            string pxe = info.PxeServers.Count == 0 ? "No PXE distribution point is known. Add one in Settings." : "Flushes the PXE cache on " + string.Join(", ", info.PxeServers.ToArray()) + ". Turned on with the deletion of a device, since the PXE point remembers it for a while. Otherwise only needed when SMSPXE.log still says the device is not serviced after a reset.";
             Add(new SettingRow(Glyphs3.Network, "Restart the PXE service afterwards", pxe, tRestart));
 
             Add(new SectionTitle("What PxeVice changes"));
@@ -139,7 +141,7 @@ namespace PxeVice
             bReset.Click += Safe.Wrap(delegate
             {
                 Prefs.SetBool("DeleteUnknown", tUnknown.On);
-                Prefs.SetBool("RestartPxe", tRestart.On);
+                if (!tDevices.On) Prefs.SetBool("RestartPxe", tRestart.On);
                 DialogResult = DialogResult.OK;
                 Close();
             });

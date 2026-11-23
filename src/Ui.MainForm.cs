@@ -35,6 +35,9 @@ namespace PxeVice
         {
             public string Key, Name, Mac, Guid;
             public DateTime Since;
+            // Resource IDs of device records this reset deleted, and whether the PXE service was restarted with it.
+            public List<long> Deleted = new List<long>();
+            public bool Restarted;
         }
         readonly List<Awaited> awaiting = new List<Awaited>();
 
@@ -587,6 +590,11 @@ namespace PxeVice
                 Banner(null, false, null);
                 return;
             }
+            if (bannerAction == "Restart PXE service")
+            {
+                RestartCachePoint();
+                return;
+            }
             OpenSettings();
         }
 
@@ -800,21 +808,108 @@ namespace PxeVice
                 }
                 if (hit == null) continue;
                 awaiting.RemoveAt(i);
+                bool remembered = hit.ItemKey >= 0 && w.Deleted.Contains(hit.ItemKey);
                 Activity a = new Activity();
                 a.TimeUtc = hit.Utc ?? DateTime.UtcNow;
                 a.Machine = w.Name;
                 a.Action = "Next PXE boot on " + hit.Server;
                 a.Ok = hit.Served;
                 a.Result = hit.Served ? "Offered " + DeploymentText(hit.OfferId) : hit.Result + ". See the PXE check";
+                if (remembered) a.Result = "Answered for the deleted device " + hit.ItemKey + ": the PXE point still remembers it";
                 a.User = Cli.UserName;
                 activities.Insert(0, a);
                 ActivityLog.Write(a);
                 activity.SetRows(new List<Activity>(activities));
                 tabs.SetText(TabActivity, "Activity (" + activities.Count + ")");
                 msg = hit.Served ? w.Name + " PXE booted again and was offered " + DeploymentText(hit.OfferId) + "." : w.Name + " PXE booted again, but was not serviced. Select it to see why.";
+                if (remembered)
+                {
+                    // The site let the device go, but the PXE point answers from what it remembers.
+                    msg = w.Name + " PXE booted again, but " + hit.Server + " still answered for the device that was deleted (" + hit.ItemKey + "). The PXE point remembers devices for a while.";
+                    cacheServer = hit.Server;
+                    Banner("The PXE point on " + hit.Server + " still remembers the deleted device " + w.Name + ". " + (w.Restarted ? "The PXE service was restarted before this boot, so wait a minute and boot it again." : "Restart the PXE service to make it forget, then boot it again."), true, w.Restarted ? null : "Restart PXE service");
+                    awaiting.Add(NewWait(w));
+                }
                 try { if (!ContainsFocus) FlashWindow(Handle, true); } catch (Exception) { }
             }
             return msg;
+        }
+
+        string cacheServer;
+
+        // The same machine, waiting for one more boot.
+        static Awaited NewWait(Awaited w)
+        {
+            Awaited n = new Awaited();
+            n.Key = w.Key;
+            n.Name = w.Name;
+            n.Mac = w.Mac;
+            n.Guid = w.Guid;
+            n.Since = DateTime.UtcNow;
+            n.Restarted = w.Restarted;
+            n.Deleted.AddRange(w.Deleted);
+            return n;
+        }
+
+        void RestartCachePoint()
+        {
+            string server = cacheServer;
+            ISite s = site;
+            if (server == null || s == null || busy) return;
+            busy = true;
+            busyBar.Running = true;
+            Status("Restarting the PXE service on " + server + "…");
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                List<Activity> done = new List<Activity>();
+                try
+                {
+                    foreach (string svc in s.RunningPxeServices(server))
+                    {
+                        Activity a = new Activity();
+                        a.TimeUtc = DateTime.UtcNow;
+                        a.Machine = server;
+                        a.Action = "Restart the service " + svc + " on " + server;
+                        a.User = Cli.UserName;
+                        try { s.RestartService(server, svc); a.Ok = true; a.Result = "Restarted"; }
+                        catch (Exception ex) { a.Ok = false; a.Result = ex.Message; }
+                        ActivityLog.Write(a);
+                        done.Add(a);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Activity a = new Activity();
+                    a.TimeUtc = DateTime.UtcNow;
+                    a.Machine = server;
+                    a.Action = "Restart the PXE service on " + server;
+                    a.User = Cli.UserName;
+                    a.Ok = false;
+                    a.Result = ex.Message;
+                    ActivityLog.Write(a);
+                    done.Add(a);
+                }
+                try
+                {
+                    BeginInvoke((MethodInvoker)delegate
+                    {
+                        busy = false;
+                        busyBar.Running = false;
+                        bool ok = done.Count > 0;
+                        foreach (Activity a in done) if (!a.Ok) ok = false;
+                        done.Reverse();
+                        activities.InsertRange(0, done);
+                        activity.SetRows(new List<Activity>(activities));
+                        tabs.SetText(TabActivity, "Activity (" + activities.Count + ")");
+                        foreach (Awaited w in awaiting) w.Restarted = ok;
+                        bannerError = false;
+                        Banner(null, false, null);
+                        Status(ok ? "The PXE service was restarted on " + server + ". Boot the machine again." : "The PXE service could not be restarted on " + server + ". See the Activity tab.");
+                        WaitBanner();
+                    });
+                }
+                catch (Exception) { }
+            });
         }
 
         void WaitBanner()
@@ -1353,12 +1448,12 @@ namespace PxeVice
                     });
                 }
                 catch (Exception ex) { err = ex; }
-                try { BeginInvoke((MethodInvoker)delegate { Ran(done, err, sel, started); }); }
+                try { BeginInvoke((MethodInvoker)delegate { Ran(done, err, sel, started, plan); }); }
                 catch (Exception) { }
             });
         }
 
-        void Ran(List<Activity> done, Exception err, List<Machine> sel, DateTime started)
+        void Ran(List<Activity> done, Exception err, List<Machine> sel, DateTime started, Plan plan)
         {
             busy = false;
             busyBar.Running = false;
@@ -1386,6 +1481,14 @@ namespace PxeVice
                     w.Mac = m.MacAddress;
                     w.Guid = m.SmbiosGuid;
                     w.Since = started;
+                    if (plan != null)
+                    {
+                        foreach (Step st in plan.Steps)
+                        {
+                            if (st.Kind == StepKind.DeleteDevice && st.MachineName == m.Name) foreach (uint id in st.ResourceIds) w.Deleted.Add(id);
+                            if (st.Kind == StepKind.RestartService) w.Restarted = true;
+                        }
+                    }
                     awaiting.Add(w);
                 }
                 if (!watching && Prefs.GetBool("WatchAfterReset", true)) SetWatch(true);

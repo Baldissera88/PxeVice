@@ -1,5 +1,13 @@
 # Changelog
 
+## PxeVice 0.3.2
+
+23 November 2026.
+
+- **Deleted devices are checked**: after PxeVice deletes a named device it reads the site again, and the Activity tab says `Deleted (decommissioned)`. If the site still lists the device, the change is shown as failed, so it is not taken for done. Deleting only marks a device decommissioned: it is gone from the console at once and removed from the database later by Delete Aged Discovery Data
+- **The PXE service is restarted with a deleted device**: turning on **Delete named device records too** turns on **Restart the PXE service afterwards** with it, since the PXE point remembers a device for a while. It can be turned off again. On the command line `/removedevice` restarts the PXE service too, and `/keeppxe` stops that
+- **When the PXE point still remembers**: if the next PXE boot is answered for the device that was deleted, PxeVice says that the PXE point still remembers it, and the banner has **Restart PXE service** for that distribution point
+
 ## PxeVice 0.3.1
 
 16 November 2026.

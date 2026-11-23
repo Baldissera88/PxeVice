@@ -13,6 +13,7 @@ namespace PxeVice.Tests
             MergeOneLinePerMachine();
             ResetUnknownWithRecord();
             ResetKeepsNamedDevice();
+            DeleteIsChecked();
             ResetDeletedDevice();
             SharedAdapterIsSafe();
             RestartService();
@@ -118,6 +119,28 @@ namespace PxeVice.Tests
             DemoSite site2 = new DemoSite(Now);
             Machine m2 = Find(Engine.Read(site2).Machines, "F8:75:A4:0B:7E:21");
             T.Equal(1, Engine.BuildPlan(site2, new List<Machine>(new Machine[] { m2 }), all).Count(StepKind.DeleteDevice), "named device deleted when asked");
+        }
+
+        static void DeleteIsChecked()
+        {
+            Engine.VerifyWaitMs = 0;
+            ResetOptions all = new ResetOptions();
+            all.DeleteDevices = true;
+            DemoSite site = new DemoSite(Now);
+            Machine m = Find(Engine.Read(site).Machines, "F8:75:A4:0B:7E:21");
+            Plan p = Engine.BuildPlan(site, new List<Machine>(new Machine[] { m }), all);
+            List<Activity> done = Engine.Execute(site, p, null);
+            bool said = false;
+            foreach (Activity a in done) if (a.Action.StartsWith("Delete the device")) { said = true; T.Check(a.Ok, "delete ok"); T.Equal("Deleted (decommissioned)", a.Result, "delete says decommissioned"); }
+            T.Check(said, "a delete step ran");
+
+            DemoSite slow = new DemoSite(Now);
+            slow.KeepDeleted = true;
+            Machine m2 = Find(Engine.Read(slow).Machines, "F8:75:A4:0B:7E:21");
+            Plan p2 = Engine.BuildPlan(slow, new List<Machine>(new Machine[] { m2 }), all);
+            int failed = 0;
+            foreach (Activity a in Engine.Execute(slow, p2, null)) if (!a.Ok) { failed++; T.Check(a.Result.Contains("still lists"), "says the site still lists it"); }
+            T.Equal(1, failed, "a device the site still lists is reported");
         }
 
         static void ResetDeletedDevice()

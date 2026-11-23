@@ -242,9 +242,13 @@ namespace PxeVice
             Flags.RemoveAll(delegate (PxeFlag f) { return f.MachineId > 0 && f.MachineId <= uint.MaxValue && Array.IndexOf(ids, (uint)f.MachineId) >= 0; });
         }
 
+        // Set to act like a site that has not let go of a deleted device yet.
+        public bool KeepDeleted;
+
         public void DeleteDevice(uint id)
         {
             Wait();
+            if (KeepDeleted) return;
             foreach (DeviceRecord d in Devices) if (d.ResourceId == id) Rebooted(d.MacAddresses.Count > 0 ? d.MacAddresses[0] : null, d.SmbiosGuid);
             int n = Devices.RemoveAll(delegate (DeviceRecord d) { return d.ResourceId == id; });
             if (n == 0) throw new InvalidOperationException("Device " + id + " was not found.");

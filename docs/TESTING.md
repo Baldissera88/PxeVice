@@ -46,6 +46,8 @@ A checklist for checking PxeVice against a real Configuration Manager site. Use 
 - [ ] The device is gone from the console, and `LastPXEAdvertisement` has no row for its MAC address and SMBIOS GUID
 - [ ] `%LOCALAPPDATA%\PxeVice\PxeVice.log` has a line for every change and for the next boot, and opens in LogVice
 - [ ] A reset with **Restart the PXE service afterwards** restarts WDSServer or SccmPxe on the distribution point
+- [ ] Turning on **Delete named device records too** turns on the restart with it. After the reset the Activity tab says `Deleted (decommissioned)` for the device, and it is gone from the console
+- [ ] Reset a named device without the restart and PXE boot it at once. If SMSPXE.log answers for the deleted device, the banner says the PXE point still remembers it, and **Restart PXE service** restarts WDSServer or SccmPxe on that distribution point
 
 ## Shared adapters
 

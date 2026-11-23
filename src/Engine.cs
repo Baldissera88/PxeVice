@@ -319,6 +319,20 @@ namespace PxeVice
             return string.Join(", ", parts.ToArray());
         }
 
+        // How long to wait between the reads that check a deleted device is gone. Tests set it to 0.
+        public static int VerifyWaitMs = 600;
+
+        static bool Gone(ISite site, uint id)
+        {
+            for (int attempt = 0; attempt < 4; attempt++)
+            {
+                if (attempt > 0 && VerifyWaitMs > 0) System.Threading.Thread.Sleep(VerifyWaitMs);
+                try { if (site.FindDevices(null, null, null, new uint[] { id }).Count == 0) return true; }
+                catch (Exception) { return true; }
+            }
+            return false;
+        }
+
         // Runs the steps in order. A step that fails is reported and the next one still runs.
         public static List<Activity> Execute(ISite site, Plan plan, Action<Activity> progress)
         {
@@ -340,9 +354,22 @@ namespace PxeVice
                             a.Result = "Cleared";
                             break;
                         case StepKind.DeleteUnknownRecord:
-                        case StepKind.DeleteDevice:
                             site.DeleteDevice(s.ResourceIds[0]);
                             a.Result = "Deleted";
+                            break;
+                        case StepKind.DeleteDevice:
+                            site.DeleteDevice(s.ResourceIds[0]);
+                            // Deleting only marks the device Decommissioned. Read it again to see that the site let go of it.
+                            if (Gone(site, s.ResourceIds[0])) a.Result = "Deleted (decommissioned)";
+                            else
+                            {
+                                a.Result = "Deleted, but the site still lists the device. Read again in a moment";
+                                a.Ok = false;
+                                done.Add(a);
+                                ActivityLog.Write(a);
+                                if (progress != null) progress(a);
+                                continue;
+                            }
                             break;
                         case StepKind.DeleteFlagRows:
                             int n = site.DeleteFlags(s.MacAddress, s.SmbiosGuid, s.ResourceIds);

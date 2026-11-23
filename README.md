@@ -70,7 +70,9 @@ Select one or more machines and press **Reset** (Ctrl+R). PxeVice reads the site
 1. Clear the PXE flag with **Clear Required PXE Deployments**, the method the console uses
 2. Delete the device records named `Unknown` for the machine. Named devices are only deleted when you turn that on
 3. Delete the machine's rows that are still in `LastPXEAdvertisement`, such as flags of unknown computers and deleted devices
-4. Restart the PXE service (WDSServer or SccmPxe) on the PXE distribution points, when you turn that on
+4. Restart the PXE service (WDSServer or SccmPxe) on the PXE distribution points, when you turn that on. It turns on by itself when you delete named devices
+
+Deleting a named device only marks it decommissioned: it is gone from the console at once, and the site database removes it later with Delete Aged Discovery Data. PxeVice reads the site again after the deletion and says if the device is still listed. The PXE point remembers a device for a while, so a machine can be answered as the deleted device until the PXE service is restarted. If the next PXE boot is, PxeVice says so and offers to restart the service.
 
 Then PxeVice starts watching and waits for the machine's next PXE boot. Boot it from the network: the status bar and the Activity tab say whether it was offered a task sequence, or why not.
 
@@ -138,7 +140,8 @@ PxeVice.exe /reset /mac <mac>          Reset a machine. Also with /guid <guid> o
   /whatif                              Show what /reset would change, and change nothing
   /removedevice                        Also delete named device records that match
   /keepunknown                         Do not delete device records named Unknown
-  /restartpxe                          Restart the PXE service afterwards
+  /restartpxe                          Restart the PXE service afterwards (on by default with /removedevice)
+  /keeppxe                             Do not restart the PXE service, also with /removedevice
 
   /use <name>                          Use a site saved in PxeVice
   /site <server>                       The site server with the SMS Provider (default: this computer or Settings)

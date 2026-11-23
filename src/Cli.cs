@@ -56,7 +56,8 @@ namespace PxeVice
             new string[] { "/whatif", "Show what /reset would change, and change nothing" },
             new string[] { "/removedevice", "Also delete named device records that match" },
             new string[] { "/keepunknown", "Do not delete device records named Unknown" },
-            new string[] { "/restartpxe", "Restart the PXE service afterwards" },
+            new string[] { "/restartpxe", "Restart the PXE service afterwards (on by default with /removedevice)" },
+            new string[] { "/keeppxe", "Do not restart the PXE service, also with /removedevice" },
             new string[] { "/use <name>", "Use a site saved in PxeVice" },
             new string[] { "/ownaccount", "Use your own account, not the service account from Settings" },
             new string[] { "/site <server>", "The site server with the SMS Provider (default: this computer or Settings)" },
@@ -79,7 +80,7 @@ namespace PxeVice
             bool list = false, reset = false, whatIf = false, demo = false, check = false, requests = false;
             string mac = null, guid = null, name = null, report = null;
             int hours = 24;
-            bool ownAccount = false;
+            bool ownAccount = false, keepPxe = false;
             ResetOptions ro = new ResetOptions();
             SiteOptions so = SiteOptions.FromPrefs();
             try
@@ -122,6 +123,7 @@ namespace PxeVice
                         case "removedevice": ro.DeleteDevices = true; break;
                         case "keepunknown": ro.DeleteUnknownRecords = false; break;
                         case "restartpxe": ro.RestartPxeService = true; break;
+                        case "keeppxe": keepPxe = true; break;
                         case "site": so.SiteServer = Next(args, ref i); break;
                         case "sql": so.SqlServer = Next(args, ref i); break;
                         case "db": so.Database = Next(args, ref i); break;
@@ -137,6 +139,8 @@ namespace PxeVice
                     Usage();
                     return 1;
                 }
+                // Deleting a named device leaves the PXE point remembering it, so the PXE service is restarted too.
+                if (ro.DeleteDevices && !keepPxe) ro.RestartPxeService = true;
                 bool target = mac != null || guid != null || !string.IsNullOrEmpty(name);
                 if ((reset || check) && !target) throw new ArgumentException((reset ? "/reset" : "/check") + " needs /mac, /guid or /name.");
                 // With a service account in Settings and its password remembered, the command line uses it too.
