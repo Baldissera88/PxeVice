@@ -5,7 +5,7 @@
 23 November 2026.
 
 - **Install no longer needs SHA256SUMS.txt**: when a release has no `SHA256SUMS.txt`, PxeVice checks the download against the SHA-256 that GitHub gives for each file of the release. With neither, there is no Install button, and the update page now says why instead of leaving it out
-- The **Update** button (banner and Settings > Updates, before **What is new**) opens the page with the release notes and **Install**. Settings > Updates says in the version line why Install is not offered
+- The **Update** button (banner and Settings > Updates, called What is new before) opens the page with the release notes and **Install**. Settings > Updates says in the version line why Install is not offered
 
 ## PxeVice 0.5.1
 
