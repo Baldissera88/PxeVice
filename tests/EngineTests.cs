@@ -211,6 +211,23 @@ namespace PxeVice.Tests
             }
             Machine u = new Machine();
             u.MacAddress = "00:E0:4C:68:01:1A";
+            // With an SMBIOS GUID that several named devices share, none of them is deleted.
+            DemoSite twins = new DemoSite(Now);
+            foreach (string n in new string[] { "PC-T1", "PC-T2" })
+            {
+                DeviceRecord d = new DeviceRecord();
+                d.ResourceId = n == "PC-T1" ? 16777411u : 16777412u;
+                d.Name = n;
+                d.SmbiosGuid = "03000200-0400-0500-0006-000700080099";
+                twins.Devices.Add(d);
+            }
+            Machine tw = new Machine();
+            tw.SmbiosGuid = "03000200-0400-0500-0006-000700080099";
+            ResetOptions del = new ResetOptions();
+            del.DeleteDevices = true;
+            Plan pt = Engine.BuildPlan(twins, new List<Machine>(new Machine[] { tw }), del);
+            T.Equal(0, pt.Count(StepKind.DeleteDevice), "shared SMBIOS GUID: no device is deleted");
+            T.Check(pt.Notes.Count > 0 && pt.Notes[0].Contains("SMBIOS GUID"), "shared SMBIOS GUID: explained");
             Plan pd = Engine.BuildPlan(dongle, new List<Machine>(new Machine[] { u }), new ResetOptions());
             T.Equal(0, pd.Count(StepKind.ClearFlag), "shared adapter: other devices not cleared");
             T.Check(pd.Notes.Count > 0 && pd.Notes[0].Contains("left alone"), "shared adapter: explained");

@@ -1,5 +1,11 @@
 # Changelog
 
+## PxeVice 0.6.1
+
+23 November 2026.
+
+- **No deletion of devices that share an SMBIOS GUID**: some firmware reports the same SMBIOS GUID on many machines. When several named devices matched a machine only by SMBIOS GUID, a reset with **Delete the device from ConfigMgr** on would have deleted all of them. They are now left alone, as already happened for a shared MAC address, and the reset says which devices it skipped. A device that has its own PXE flag is still matched by its resource ID
+
 ## PxeVice 0.6.0
 
 23 November 2026.

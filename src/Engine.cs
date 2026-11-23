@@ -202,15 +202,17 @@ namespace PxeVice
                     if (!known.Contains(id)) known.Add(id);
                 }
                 List<DeviceRecord> devices = site.FindDevices(mac, guid, null, known.ToArray());
-                // Without an SMBIOS GUID, a MAC address can belong to a network adapter that several devices have used.
-                // Named devices found only by that MAC address are then left alone when there is more than one.
-                if (guid == null && mac != null)
+                // A MAC address can belong to a network adapter that several devices have used, and some firmware reports the same
+                // SMBIOS GUID on many machines. Named devices found only that way are left alone when there is more than one,
+                // so a deletion never reaches a device the machine does not clearly own.
+                if (guid != null || mac != null)
                 {
-                    List<DeviceRecord> byMacOnly = devices.FindAll(delegate (DeviceRecord d) { return !d.IsUnknownRecord && !known.Contains(d.ResourceId); });
-                    if (byMacOnly.Count > 1)
+                    List<DeviceRecord> byKeyOnly = devices.FindAll(delegate (DeviceRecord d) { return !d.IsUnknownRecord && !flagIds.Contains(d.ResourceId); });
+                    if (byKeyOnly.Count > 1)
                     {
-                        devices.RemoveAll(delegate (DeviceRecord d) { return byMacOnly.Contains(d); });
-                        p.Notes.Add(m.Name + ": " + byMacOnly.Count + " devices (" + Names(byMacOnly) + ") have used MAC address " + mac + ", probably a shared network adapter, so they are left alone. Reset a device by its name to clear its flag.");
+                        devices.RemoveAll(delegate (DeviceRecord d) { return byKeyOnly.Contains(d); });
+                        string key = guid != null ? "SMBIOS GUID " + guid : "MAC address " + mac;
+                        p.Notes.Add(m.Name + ": " + byKeyOnly.Count + " devices (" + Names(byKeyOnly) + ") have the " + key + ", probably firmware or a network adapter that many machines share, so they are left alone. Reset a device by its name to clear its flag.");
                     }
                 }
                 List<uint> ids = new List<uint>();
