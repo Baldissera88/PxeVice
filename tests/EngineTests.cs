@@ -14,6 +14,7 @@ namespace PxeVice.Tests
             ResetUnknownWithRecord();
             ResetKeepsNamedDevice();
             DeleteIsChecked();
+            FailuresAreExplained();
             ResetDeletedDevice();
             SharedAdapterIsSafe();
             RestartService();
@@ -119,6 +120,20 @@ namespace PxeVice.Tests
             DemoSite site2 = new DemoSite(Now);
             Machine m2 = Find(Engine.Read(site2).Machines, "F8:75:A4:0B:7E:21");
             T.Equal(1, Engine.BuildPlan(site2, new List<Machine>(new Machine[] { m2 }), all).Count(StepKind.DeleteDevice), "named device deleted when asked");
+        }
+
+        static void FailuresAreExplained()
+        {
+            Step restart = new Step();
+            restart.Kind = StepKind.RestartService;
+            restart.Server = "SRV1";
+            Exception denied = new InvalidOperationException("Cannot open WDSServer service on computer 'SRV1'.", new System.ComponentModel.Win32Exception(5));
+            string text = Engine.Explain(denied, restart);
+            T.Check(text.Contains("Cannot open WDSServer") && text.Contains("administrator rights on SRV1"), "service access denied says what to do: " + text);
+            Step clear = new Step();
+            clear.Kind = StepKind.ClearFlag;
+            T.Check(Engine.Explain(new UnauthorizedAccessException("Access is denied."), clear).Contains("lacks the rights"), "access denied on another step");
+            T.Equal("Not found", Engine.Explain(new InvalidOperationException("Not found"), clear), "other errors keep their text");
         }
 
         static void DeleteIsChecked()

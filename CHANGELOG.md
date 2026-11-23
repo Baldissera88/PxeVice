@@ -1,5 +1,12 @@
 # Changelog
 
+## PxeVice 0.5.1
+
+23 November 2026.
+
+- **Clear message when the PXE service cannot be restarted**: Windows only says "Cannot open WDSServer service on computer", and the cause is in the inner error. PxeVice now shows it, and when it is missing rights it says that restarting the PXE service needs administrator rights on that server: start PxeVice as administrator when it runs on the server, or use a service account that is a local administrator there. Other failed changes show the inner error too
+- **A device the site no longer has** gives "The site no longer has this device, so there is nothing to clear" for Clear Required PXE Deployments, instead of "Not found" as a failure. The reset goes on and deletes the rows that are left
+
 ## PxeVice 0.5.0
 
 23 November 2026.

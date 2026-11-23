@@ -319,6 +319,26 @@ namespace PxeVice
             return string.Join(", ", parts.ToArray());
         }
 
+        // The reason a step failed, with what to do when the cause is known. Windows says only "Cannot open WDSServer
+        // service on computer" when the rights are missing, and the real reason is in the inner exception.
+        public static string Explain(Exception ex, Step s)
+        {
+            string text = ex == null ? "" : ex.Message;
+            bool denied = false;
+            for (Exception e = ex; e != null; e = e.InnerException)
+            {
+                System.ComponentModel.Win32Exception w = e as System.ComponentModel.Win32Exception;
+                if (w != null && w.NativeErrorCode == 5) denied = true;
+                if (e is UnauthorizedAccessException || e.Message.IndexOf("access is denied", StringComparison.OrdinalIgnoreCase) >= 0) denied = true;
+                if (e != ex && e.Message.Length > 0 && text.IndexOf(e.Message, StringComparison.OrdinalIgnoreCase) < 0) text += " " + e.Message;
+            }
+            if (denied && s != null && s.Kind == StepKind.RestartService)
+                return text.TrimEnd('.', ' ') + ". Restarting the PXE service needs administrator rights on " + s.Server + ": start PxeVice as administrator when it runs on that server, or use a service account that is a local administrator there.";
+            if (denied)
+                return text.TrimEnd('.', ' ') + ". The account PxeVice runs with lacks the rights for this change.";
+            return text;
+        }
+
         // How long to wait between the reads that check a deleted device is gone. Tests set it to 0.
         public static int VerifyWaitMs = 600;
 
@@ -350,8 +370,17 @@ namespace PxeVice
                     switch (s.Kind)
                     {
                         case StepKind.ClearFlag:
-                            site.ClearFlags(s.ResourceIds);
-                            a.Result = "Cleared";
+                            try
+                            {
+                                site.ClearFlags(s.ResourceIds);
+                                a.Result = "Cleared";
+                            }
+                            catch (System.Management.ManagementException mex)
+                            {
+                                // A device the site has already let go of has no flag to clear. The rows that are left are deleted by the next step.
+                                if (mex.ErrorCode != System.Management.ManagementStatus.NotFound) throw;
+                                a.Result = "The site no longer has this device, so there is nothing to clear";
+                            }
                             break;
                         case StepKind.DeleteUnknownRecord:
                             site.DeleteDevice(s.ResourceIds[0]);
@@ -385,7 +414,7 @@ namespace PxeVice
                 catch (Exception ex)
                 {
                     a.Ok = false;
-                    a.Result = ex.Message;
+                    a.Result = Explain(ex, s);
                 }
                 done.Add(a);
                 ActivityLog.Write(a);
