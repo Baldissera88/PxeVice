@@ -18,6 +18,7 @@ namespace PxeVice.Tests
                 Keys();
                 History();
                 HealthChecks();
+                PolicyFiles();
             }
             finally { PxePolicy.Read = delegate (string n) { return 0; }; }
         }
@@ -182,6 +183,19 @@ namespace PxeVice.Tests
             T.Check(Item(items, "Deployment to All Unknown Computers").State == HealthState.Problem, "no deployment to All Unknown Computers is a problem");
             T.Equal(HealthState.Problem, Health.Worst(items), "a problem is the worst");
             T.Check(Health.AsText(items).Contains("To do:"), "a problem says what to do");
+        }
+
+        static void PolicyFiles()
+        {
+            string admx = File.ReadAllText("policy/PxeVice.admx");
+            string adml = File.ReadAllText("policy/en-US/PxeVice.adml");
+            foreach (string name in new string[] { Updater.PolicyCheck, Updater.PolicyInstall, PxePolicy.ReadOnlyName, PxePolicy.NoDeleteName, PxePolicy.RequireTicketName, PxePolicy.MaxMachinesName })
+            {
+                T.Check(admx.Contains("valueName=\"" + name + "\""), "the template has the value " + name);
+                T.Check(adml.Contains("<string id=\"" + name + "\">") && adml.Contains("<string id=\"" + name + "_Help\">"), "the template has the text of " + name);
+            }
+            T.Check(admx.Contains("HKLM") || admx.Contains("Software\\Policies\\PxeVice"), "the template writes under Policies\\PxeVice");
+            T.Equal(@"SOFTWARE\Policies\PxeVice", Updater.PolicyKey, "the key the program reads is the key the template writes");
         }
     }
 }

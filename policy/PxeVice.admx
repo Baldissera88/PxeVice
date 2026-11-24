@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<policyDefinitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" revision="1.0" schemaVersion="1.0" xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
+  <policyNamespaces>
+    <target prefix="pxevice" namespace="Baldissera88.Policies.PxeVice" />
+    <using prefix="windows" namespace="Microsoft.Policies.Windows" />
+  </policyNamespaces>
+  <resources minRequiredRevision="1.0" />
+  <supportedOn>
+    <definitions>
+      <definition name="SUPPORTED_PxeVice_1_5" displayName="$(string.SUPPORTED_PxeVice_1_5)" />
+      <definition name="SUPPORTED_PxeVice_2_0" displayName="$(string.SUPPORTED_PxeVice_2_0)" />
+    </definitions>
+  </supportedOn>
+  <categories>
+    <category name="PxeVice" displayName="$(string.PxeVice)" />
+  </categories>
+  <policies>
+    <policy name="DisableUpdateCheck" class="Machine" displayName="$(string.DisableUpdateCheck)" explainText="$(string.DisableUpdateCheck_Help)" key="Software\Policies\PxeVice" valueName="DisableUpdateCheck">
+      <parentCategory ref="PxeVice" />
+      <supportedOn ref="SUPPORTED_PxeVice_1_5" />
+      <enabledValue>
+        <decimal value="1" />
+      </enabledValue>
+      <disabledValue>
+        <decimal value="0" />
+      </disabledValue>
+    </policy>
+    <policy name="DisableUpdateInstall" class="Machine" displayName="$(string.DisableUpdateInstall)" explainText="$(string.DisableUpdateInstall_Help)" key="Software\Policies\PxeVice" valueName="DisableUpdateInstall">
+      <parentCategory ref="PxeVice" />
+      <supportedOn ref="SUPPORTED_PxeVice_1_5" />
+      <enabledValue>
+        <decimal value="1" />
+      </enabledValue>
+      <disabledValue>
+        <decimal value="0" />
+      </disabledValue>
+    </policy>
+    <policy name="ReadOnly" class="Machine" displayName="$(string.ReadOnly)" explainText="$(string.ReadOnly_Help)" key="Software\Policies\PxeVice" valueName="ReadOnly">
+      <parentCategory ref="PxeVice" />
+      <supportedOn ref="SUPPORTED_PxeVice_2_0" />
+      <enabledValue>
+        <decimal value="1" />
+      </enabledValue>
+      <disabledValue>
+        <decimal value="0" />
+      </disabledValue>
+    </policy>
+    <policy name="DisableDeviceDeletion" class="Machine" displayName="$(string.DisableDeviceDeletion)" explainText="$(string.DisableDeviceDeletion_Help)" key="Software\Policies\PxeVice" valueName="DisableDeviceDeletion">
+      <parentCategory ref="PxeVice" />
+      <supportedOn ref="SUPPORTED_PxeVice_2_0" />
+      <enabledValue>
+        <decimal value="1" />
+      </enabledValue>
+      <disabledValue>
+        <decimal value="0" />
+      </disabledValue>
+    </policy>
+    <policy name="RequireTicket" class="Machine" displayName="$(string.RequireTicket)" explainText="$(string.RequireTicket_Help)" key="Software\Policies\PxeVice" valueName="RequireTicket">
+      <parentCategory ref="PxeVice" />
+      <supportedOn ref="SUPPORTED_PxeVice_2_0" />
+      <enabledValue>
+        <decimal value="1" />
+      </enabledValue>
+      <disabledValue>
+        <decimal value="0" />
+      </disabledValue>
+    </policy>
+    <policy name="MaxMachinesPerReset" class="Machine" displayName="$(string.MaxMachinesPerReset)" explainText="$(string.MaxMachinesPerReset_Help)" key="Software\Policies\PxeVice">
+      <parentCategory ref="PxeVice" />
+      <supportedOn ref="SUPPORTED_PxeVice_2_0" />
+      <elements>
+        <decimal id="MaxMachinesPerReset" valueName="MaxMachinesPerReset" minValue="1" maxValue="1000" />
+      </elements>
+    </policy>
+  </policies>
+</policyDefinitions>

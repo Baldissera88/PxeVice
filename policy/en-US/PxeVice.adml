@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<policyDefinitionResources xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" revision="1.0" schemaVersion="1.0" xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
+  <displayName>PxeVice</displayName>
+  <description>Policy settings for PxeVice, the PXE reset tool for Configuration Manager.</description>
+  <resources>
+    <stringTable>
+      <string id="PxeVice">PxeVice</string>
+      <string id="SUPPORTED_PxeVice_1_5">PxeVice 0.5.0 or later</string>
+      <string id="SUPPORTED_PxeVice_2_0">PxeVice 2.0.0 or later</string>
+      <string id="DisableUpdateCheck">Turn off the update check</string>
+      <string id="DisableUpdateCheck_Help">PxeVice checks GitHub once a day for a newer version and shows an Update button when one is available. It sends nothing about the user or the site.
+
+If you enable this policy, PxeVice does not check for updates, does not show the Update button, and users cannot turn the check on. Use this when you deploy PxeVice with Intune or ConfigMgr.
+
+If you disable or do not configure this policy, users can turn the check on or off under Settings &gt; Updates. It is on by default.</string>
+      <string id="DisableUpdateInstall">Do not let users install updates from PxeVice</string>
+      <string id="DisableUpdateInstall_Help">PxeVice can download a new version from GitHub, check it against the release's SHA-256 checksums and install it. The MSI asks for administrator rights.
+
+If you enable this policy, PxeVice does not show the Install button, and users cannot turn it on. The update check is not affected.
+
+If you disable or do not configure this policy, users can turn installing on under Settings &gt; Updates. It is off by default.</string>
+      <string id="ReadOnly">Read only: do not allow resets</string>
+      <string id="ReadOnly_Help">If you enable this policy, PxeVice reads the site and shows what it would change, but a reset is not started. Nothing is cleared, deleted or restarted, from the window or from the command line.
+
+If you disable or do not configure this policy, supporters with the right permissions in Configuration Manager can reset machines.</string>
+      <string id="DisableDeviceDeletion">Do not allow deleting devices from the site</string>
+      <string id="DisableDeviceDeletion_Help">Deleting a device from Configuration Manager is the one change PxeVice cannot undo: the device loses its collection memberships, deployments and variables. If you enable this policy, a reset that includes deleting a device is not started. Clearing PXE flags and deleting Unknown device records still work.
+
+If you disable or do not configure this policy, the deletion is available as a high risk option in the reset window, and with /removedevice on the command line. PxeVice writes what it knows about the device to a file before it deletes it.</string>
+      <string id="RequireTicket">Require a ticket with every reset</string>
+      <string id="RequireTicket_Help">If you enable this policy, a reset is only started when the supporter has written a ticket number or a reference. It is written to the activity log with every change. The command line takes it with /ticket.
+
+If you disable or do not configure this policy, the ticket is optional.</string>
+      <string id="MaxMachinesPerReset">Most machines in one reset</string>
+      <string id="MaxMachinesPerReset_Help">If you enable this policy and set a number, a reset of more machines than that is not started. Use it to keep a slip, such as selecting every machine, from reaching the whole list.
+
+If you disable or do not configure this policy, there is no limit.</string>
+    </stringTable>
+  </resources>
+</policyDefinitionResources>
