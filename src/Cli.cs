@@ -53,7 +53,9 @@ namespace PxeVice
             new string[] { "/reset /mac <mac>", "Reset a machine by MAC address" },
             new string[] { "/reset /guid <guid>", "Reset a machine by SMBIOS GUID" },
             new string[] { "/reset /name <name>", "Reset a device by name" },
+            new string[] { "/health", "Check the PXE setup of the whole site: points, services, unknown computer support, deployment, boot image" },
             new string[] { "/whatif", "Show what /reset would change, and change nothing" },
+            new string[] { "/ticket <text>", "A ticket or reference, written to the activity log with every change" },
             new string[] { "/removedevice", "Also delete named device records that match" },
             new string[] { "/keepunknown", "Do not delete device records named Unknown" },
             new string[] { "/restartpxe", "Restart the PXE service afterwards (on by default with /removedevice)" },
@@ -73,13 +75,13 @@ namespace PxeVice
             Console.WriteLine();
             foreach (string[] h in Help) Console.WriteLine("  " + h[0].PadRight(28) + h[1]);
             Console.WriteLine();
-            Console.WriteLine("Exit codes: 0 done, 1 error, 2 nothing found for the machine, or for /check: something blocks PXE");
+            Console.WriteLine("Exit codes: 0 done, 1 error, 2 nothing found for the machine, or for /check and /health: something blocks PXE");
         }
 
         public static int Run(string[] args)
         {
-            bool list = false, reset = false, whatIf = false, demo = false, check = false, requests = false;
-            string mac = null, guid = null, name = null, report = null;
+            bool list = false, reset = false, whatIf = false, demo = false, check = false, requests = false, health = false;
+            string mac = null, guid = null, name = null, report = null, ticket = "";
             int hours = 24;
             bool ownAccount = false, keepPxe = false, checkUpdate = false;
             ResetOptions ro = new ResetOptions();
@@ -95,6 +97,7 @@ namespace PxeVice
                         case "list": list = true; break;
                         case "reset": reset = true; break;
                         case "check": check = true; break;
+                        case "health": health = true; break;
                         case "ownaccount": ownAccount = true; break;
                         case "requests": requests = true; break;
                         case "report": report = Next(args, ref i); break;
@@ -121,6 +124,7 @@ namespace PxeVice
                             break;
                         case "name": name = Next(args, ref i); break;
                         case "whatif": whatIf = true; break;
+                        case "ticket": ticket = Next(args, ref i); break;
                         case "removedevice": ro.DeleteDevices = true; break;
                         case "keepunknown": ro.DeleteUnknownRecords = false; break;
                         case "restartpxe": ro.RestartPxeService = true; break;
@@ -137,7 +141,7 @@ namespace PxeVice
                     }
                 }
                 if (checkUpdate) return CheckUpdate();
-                if (!list && !reset && !check && !requests && report == null)
+                if (!list && !reset && !check && !requests && !health && report == null)
                 {
                     Usage();
                     return 1;
@@ -164,11 +168,19 @@ namespace PxeVice
                     PxeLogStore store = new PxeLogStore();
                     SiteData d = Engine.Read(site, store);
                     foreach (string n in d.Notes) Console.WriteLine("Note: " + n);
+                    if (health)
+                    {
+                        List<HealthItem> items = Health.Run(site, new CheckCache(), DateTime.UtcNow);
+                        Console.Write(Health.AsText(items));
+                        int bad = Health.Problems(items);
+                        Console.WriteLine(bad == 0 ? "No problem found for the site as a whole." : bad + " problem(s) found for the site as a whole.");
+                        return bad == 0 ? 0 : 2;
+                    }
                     if (list) return List(d);
                     if (requests) return Requests(d, hours);
                     if (report != null) return Save(site, d, mac, guid, name, report);
                     if (check) return Check(site, d, mac, guid, name);
-                    return Reset(site, d, mac, guid, name, ro, whatIf);
+                    return Reset(site, d, mac, guid, name, ro, whatIf, ticket);
                 }
             }
             catch (Exception ex)
@@ -284,7 +296,7 @@ namespace PxeVice
             return 0;
         }
 
-        static int Reset(ISite site, SiteData d, string mac, string guid, string name, ResetOptions ro, bool whatIf)
+        static int Reset(ISite site, SiteData d, string mac, string guid, string name, ResetOptions ro, bool whatIf, string ticket)
         {
             Machine m = Resolve(site, d, mac, guid, name);
             if (m == null)
@@ -299,13 +311,18 @@ namespace PxeVice
                 Console.WriteLine("Nothing to reset.");
                 return 2;
             }
+            string blocked = PxePolicy.Blocked(p, 1, ticket);
             if (whatIf)
             {
                 foreach (Step s in p.Steps) Console.WriteLine("What if: " + s.Text);
+                if (blocked != null) Console.WriteLine("Blocked: " + blocked);
                 return 0;
             }
             int failed = 0;
-            Engine.Execute(site, p, delegate (Activity a)
+            ResetContext ctx = new ResetContext();
+            ctx.Ticket = ticket;
+            ctx.Machines.Add(m);
+            Engine.Execute(site, p, ctx, delegate (Activity a)
             {
                 if (!a.Ok) failed++;
                 Console.WriteLine((a.Ok ? "Done:   " : "Failed: ") + a.Action + ". " + a.Result);

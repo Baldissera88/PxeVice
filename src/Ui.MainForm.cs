@@ -1558,6 +1558,7 @@ namespace PxeVice
             }
             Status("Check the changes, then press Reset.");
             Plan chosen;
+            string ticketText;
             using (ResetDialog d = new ResetDialog(theme, sel, full, s.Info))
             {
                 if (d.ShowDialog(this) != DialogResult.OK)
@@ -1566,11 +1567,12 @@ namespace PxeVice
                     return;
                 }
                 chosen = d.Chosen;
+                ticketText = d.Ticket;
             }
-            Run(s, chosen, sel);
+            Run(s, chosen, sel, ticketText);
         }
 
-        void Run(ISite s, Plan plan, List<Machine> sel)
+        void Run(ISite s, Plan plan, List<Machine> sel, string ticketText)
         {
             busy = true;
             busyBar.Running = true;
@@ -1585,7 +1587,10 @@ namespace PxeVice
                 Exception err = null;
                 try
                 {
-                    done = Engine.Execute(s, plan, delegate (Activity a)
+                    ResetContext ctx = new ResetContext();
+                    ctx.Ticket = ticketText;
+                    foreach (Machine m in sel) ctx.Machines.Add(m);
+                    done = Engine.Execute(s, plan, ctx, delegate (Activity a)
                     {
                         try { BeginInvoke((MethodInvoker)delegate { Status(a.Action + ": " + a.Result); }); } catch (Exception) { }
                     });
@@ -1998,6 +2003,8 @@ namespace PxeVice
         void HelpMenu()
         {
             ContextMenuStrip m = Menus.New(theme);
+            Menus.Add(m, "PXE health of the site\u2026", delegate { OpenHealth(); });
+            Menus.Separator(m);
             Menus.Add(m, "PxeVice on GitHub", delegate { OpenUrl("https://github.com/" + Updater.Repo); });
             Menus.Separator(m);
             Menus.Add(m, "Report a problem…", delegate { OpenProblem(); });

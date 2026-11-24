@@ -103,6 +103,13 @@ namespace PxeVice
         readonly StepList list = new StepList();
         readonly FlatButton bReset = new FlatButton("Reset", Glyphs2.Reset);
         readonly int machineCount;
+        readonly TextBox ticket = new TextBox();
+
+        // The ticket or reference written with the reset, cleaned.
+        public string Ticket
+        {
+            get { return PxeVice.Ticket.Clean(ticket.Text); }
+        }
 
         public ResetDialog(Theme t, IList<Machine> machines, Plan plan, SiteInfo info) : base(machines.Count == 1 ? "Reset " + machines[0].Name : "Reset " + machines.Count + " machines", t)
         {
@@ -121,6 +128,38 @@ namespace PxeVice
                 SettingRow r = new SettingRow(Glyphs2.Device, m.Name, string.Join("  ·  ", parts.ToArray()), null);
                 Add(r);
             }
+
+            // A machine that keeps coming back needs more than another reset.
+            foreach (Machine m in machines)
+            {
+                string again = ResetHistory.Repeat(ResetHistory.ResetsInLog(m.Name, DateTime.Now, 14));
+                if (again != null) Add(new SettingRow(Glyphs.Info, "Reset before: " + m.Name, again, null));
+            }
+
+            ticket.Width = Dpi.S(220);
+            ticket.Font = Fonts.Ui;
+            ticket.BorderStyle = BorderStyle.FixedSingle;
+            ticket.BackColor = t.Field;
+            ticket.ForeColor = t.Text;
+            ticket.MaxLength = PxeVice.Ticket.MaxLength;
+            ticket.HandleCreated += delegate { MainForm.Cue(ticket, "INC0012345"); };
+            ticket.TextChanged += Safe.Wrap(delegate { Refill(); });
+            Add(new SectionTitle("Reference"));
+            Add(new SettingRow(Glyphs.Log, PxePolicy.RequireTicket ? "Ticket (required)" : "Ticket", "A ticket number or a few words on why. It is written to the activity log with every change." + (PxePolicy.RequireTicket ? " Your organization asks for it." : ""), ticket));
+            FlatButton bCopy = SmallButton("Copy for the user", delegate
+            {
+                ContextMenuStrip menu = new ContextMenuStrip();
+                foreach (BootKeys.Maker mk in BootKeys.All)
+                {
+                    BootKeys.Maker one = mk;
+                    menu.Items.Add(one.Name, null, delegate
+                    {
+                        try { Clipboard.SetText(BootKeys.ForUser(machines[0].Name, one)); } catch (Exception) { }
+                    });
+                }
+                menu.Show(Cursor.Position);
+            });
+            Add(new SettingRow(Glyphs.Copy, "Tell the user how to boot from the network", "Copies a short message in plain words, with the boot key for the maker you choose.", new ButtonStrip(bCopy)));
 
             tUnknown.On = Prefs.GetBool("DeleteUnknown", true);
             tDevices.On = false;
@@ -215,8 +254,11 @@ namespace PxeVice
             List<bool> hot = new List<bool>();
             foreach (Step s in p.Steps) { texts.Add(s.HighRisk ? "High risk: " + s.Text + ", with its collection memberships" : s.Text); hot.Add(s.HighRisk); }
             list.EmptyText = "Nothing is left to change for " + (machineCount == 1 ? "this machine." : "these machines.");
-            list.Set(texts, hot, p.Notes);
-            bReset.Enabled = p.Steps.Count > 0;
+            List<string> notes = new List<string>(p.Notes);
+            string why = p.Steps.Count > 0 ? PxePolicy.Blocked(p, machineCount, ticket.Text) : null;
+            if (why != null) notes.Insert(0, why);
+            list.Set(texts, hot, notes);
+            bReset.Enabled = p.Steps.Count > 0 && why == null;
             bReset.Text = p.Steps.Count == 0 ? "Reset" : "Reset (" + p.Steps.Count + (p.Steps.Count == 1 ? " change)" : " changes)");
             bReset.AutoWidth();
             bReset.Width = Math.Max(bReset.Width, Dpi.S(120));

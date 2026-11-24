@@ -27,6 +27,7 @@ namespace PxeVice.Tests
         public static int Main(string[] args)
         {
             ActivityLog.Enabled = false;
+            ResetBackup.FolderOverride = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "pxevice-test-" + Guid.NewGuid().ToString("N"));
             EngineTests.Run();
             PxeTests.Run();
             RunAsTests.Run();
@@ -34,6 +35,8 @@ namespace PxeVice.Tests
             ThemeTests.Run();
             FeedbackTests.Run();
             SettingsTests.Run();
+            GovernanceTests.Run();
+            try { System.IO.Directory.Delete(ResetBackup.FolderOverride, true); } catch (Exception) { }
             Console.WriteLine(T.Passed + " passed, " + T.Failed + " failed");
             return T.Failed == 0 ? 0 : 1;
         }

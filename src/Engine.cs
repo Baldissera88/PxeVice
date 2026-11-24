@@ -365,10 +365,65 @@ namespace PxeVice
         }
 
         // Runs the steps in order. A step that fails is reported and the next one still runs.
+        static int CountMachines(Plan plan)
+        {
+            List<string> names = new List<string>();
+            foreach (Step s in plan.Steps)
+                if (s.Kind != StepKind.RestartService && s.MachineName != null && !names.Contains(s.MachineName)) names.Add(s.MachineName);
+            return names.Count;
+        }
+
         public static List<Activity> Execute(ISite site, Plan plan, Action<Activity> progress)
+        {
+            return Execute(site, plan, null, progress);
+        }
+
+        // Runs the plan. The policies are checked first, and a device is only deleted after a backup file was written.
+        public static List<Activity> Execute(ISite site, Plan plan, ResetContext ctx, Action<Activity> progress)
         {
             List<Activity> done = new List<Activity>();
             string user = Cli.UserName;
+            string ticket = ctx == null ? "" : Ticket.Clean(ctx.Ticket);
+            IList<Machine> machines = ctx != null ? ctx.Machines : new List<Machine>();
+            int count = machines.Count > 0 ? machines.Count : CountMachines(plan);
+            string why = PxePolicy.Blocked(plan, count, ticket);
+            if (why == null && plan.Count(StepKind.DeleteDevice) > 0)
+            {
+                try
+                {
+                    string path = ResetBackup.Write(ctx != null && ctx.BackupFolder != null ? ctx.BackupFolder : ResetBackup.Folder, machines, plan, ticket, user, DateTime.UtcNow);
+                    Activity b = new Activity();
+                    b.TimeUtc = DateTime.UtcNow;
+                    b.Machine = machines.Count > 0 ? machines[0].Name : "Reset";
+                    b.Action = "Wrote what is known before the deletion";
+                    b.Result = path;
+                    b.User = user;
+                    b.Ticket = ticket;
+                    b.Ok = true;
+                    done.Add(b);
+                    ActivityLog.Write(b);
+                    if (progress != null) progress(b);
+                }
+                catch (Exception ex)
+                {
+                    why = "The backup file could not be written (" + ex.Message + "), so no device is deleted and nothing was changed.";
+                }
+            }
+            if (why != null)
+            {
+                Activity blocked = new Activity();
+                blocked.TimeUtc = DateTime.UtcNow;
+                blocked.Machine = machines.Count > 0 ? machines[0].Name : "Reset";
+                blocked.Action = "Reset not started";
+                blocked.Result = why;
+                blocked.User = user;
+                blocked.Ticket = ticket;
+                blocked.Ok = false;
+                done.Add(blocked);
+                ActivityLog.Write(blocked);
+                if (progress != null) progress(blocked);
+                return done;
+            }
             foreach (Step s in plan.Steps)
             {
                 Activity a = new Activity();
@@ -376,6 +431,7 @@ namespace PxeVice
                 a.Machine = s.MachineName ?? s.Server;
                 a.Action = s.Text;
                 a.User = user;
+                a.Ticket = ticket;
                 try
                 {
                     switch (s.Kind)
@@ -455,7 +511,7 @@ namespace PxeVice
         {
             DateTime local = a.TimeUtc.ToLocalTime();
             int bias = -(int)Math.Round(TimeZone.CurrentTimeZone.GetUtcOffset(local).TotalMinutes);
-            string text = (a.Machine ?? "") + ": " + a.Action + ". " + (a.Ok ? "" : "Failed: ") + a.Result + " (by " + a.User + ")";
+            string text = (a.Machine ?? "") + ": " + a.Action + ". " + (a.Ok ? "" : "Failed: ") + a.Result + " (by " + a.User + (string.IsNullOrEmpty(a.Ticket) ? "" : ", ticket " + a.Ticket) + ")";
             return "<![LOG[" + text.Replace("]LOG]!>", "]LOG]") + "]LOG]!>" +
                 "<time=\"" + local.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture) + (bias >= 0 ? "+" : "-") + Math.Abs(bias).ToString("000", CultureInfo.InvariantCulture) + "\" " +
                 "date=\"" + local.ToString("MM-dd-yyyy", CultureInfo.InvariantCulture) + "\" component=\"PxeVice\" context=\"\" type=\"" + (a.Ok ? "1" : "3") + "\" " +

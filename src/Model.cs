@@ -285,6 +285,8 @@ namespace PxeVice
         public bool Ok;
         public string Result;
         public string User;
+        // The ticket or reference written with the reset.
+        public string Ticket;
     }
 
     public static class Ids
