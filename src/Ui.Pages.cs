@@ -318,6 +318,15 @@ namespace PxeVice
         public bool Danger;
         public string RiskTag;
         public readonly Control Accessory;
+        // A longer explanation behind a small More link under the description.
+        public string More;
+        // Marked: changed from its default. Highlight: the setting a search opened.
+        public bool Marked, Highlight;
+        // Puts a wide control under the text instead of beside it when the row is too narrow for both.
+        public bool WrapAccessory;
+        public event EventHandler MoreToggled;
+        bool expanded, linkHot;
+        Rectangle link;
 
         public SettingRow(string glyph, string title, string desc, Control right)
         {
@@ -329,13 +338,25 @@ namespace PxeVice
             if (right != null) Controls.Add(right);
         }
 
+        public bool Expanded
+        {
+            get { return expanded; }
+            set { if (expanded == value) return; expanded = value; Invalidate(); if (MoreToggled != null) MoreToggled(this, EventArgs.Empty); }
+        }
+
         int TextX()
         {
             return Fonts.Icons != null && !string.IsNullOrEmpty(Glyph) ? Dpi.S(56) : Dpi.S(20);
         }
 
+        bool Under(int width)
+        {
+            return WrapAccessory && Accessory != null && Accessory.Width + Dpi.S(32) > (width - TextX()) / 2;
+        }
+
         int RightW(int width)
         {
+            if (Under(width)) return Dpi.S(16);
             if (Accessory != null) return Accessory.Width + Dpi.S(32);
             if (!string.IsNullOrEmpty(Value)) return Math.Min(Draw.Measure(Value, Fonts.Ui).Width + 2, width / 2) + Dpi.S(20);
             return Dpi.S(16);
@@ -346,11 +367,26 @@ namespace PxeVice
             get { return MonoDesc ? Fonts.MonoSmall : Fonts.Small; }
         }
 
+        bool HasMore
+        {
+            get { return !string.IsNullOrEmpty(More); }
+        }
+
+        int MoreH(int tw)
+        {
+            if (!HasMore) return 0;
+            int h = Dpi.S(2) + Fonts.Small.Height;
+            if (expanded) h += Dpi.S(4) + Draw.WrapHeight(More, Fonts.Small, tw);
+            return h;
+        }
+
         public int Measure(int width)
         {
             int tw = Math.Max(Dpi.S(80), width - TextX() - RightW(width));
             int h = Dpi.S(14) + Fonts.Ui.Height;
             if (!string.IsNullOrEmpty(Desc)) h += Dpi.S(2) + Draw.WrapHeight(Desc, DescFont, tw);
+            h += MoreH(tw);
+            if (Under(width)) h += Dpi.S(10) + Accessory.Height;
             h += Dpi.S(14);
             int min = Accessory != null ? Accessory.Height + Dpi.S(24) : Dpi.S(56);
             return Math.Max(min, h);
@@ -369,7 +405,28 @@ namespace PxeVice
         protected override void OnLayout(LayoutEventArgs levent)
         {
             base.OnLayout(levent);
-            if (Accessory != null) Accessory.Location = new Point(Width - Dpi.S(16) - Accessory.Width, (Height - Accessory.Height) / 2);
+            if (Accessory == null) return;
+            if (Under(Width)) Accessory.Location = new Point(TextX(), Height - Dpi.S(14) - Accessory.Height);
+            else Accessory.Location = new Point(Width - Dpi.S(16) - Accessory.Width, (Height - Accessory.Height) / 2);
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            bool hot = HasMore && link.Contains(e.Location);
+            if (hot != linkHot) { linkHot = hot; Cursor = hot ? Cursors.Hand : Cursors.Default; Invalidate(); }
+            base.OnMouseMove(e);
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            if (linkHot) { linkHot = false; Cursor = Cursors.Default; Invalidate(); }
+            base.OnMouseLeave(e);
+        }
+
+        protected override void OnMouseClick(MouseEventArgs e)
+        {
+            if (HasMore && link.Contains(e.Location)) Expanded = !expanded;
+            base.OnMouseClick(e);
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -377,6 +434,7 @@ namespace PxeVice
             Graphics g = e.Graphics;
             g.Clear(Parent != null ? Parent.BackColor : theme.Bg);
             Draw.Card(g, ClientRectangle, theme);
+            if (Highlight) Shapes.Stroke(g, new RectangleF(1f, 1f, Width - 2.5f, Height - 2.5f), Dpi.S(7), theme.Accent, 2f);
             int s = Dpi.S(20);
             if (Danger)
             {
@@ -387,18 +445,48 @@ namespace PxeVice
             int tw = Math.Max(Dpi.S(80), Width - tx - RightW(Width));
             int th = Fonts.Ui.Height;
             int dh = string.IsNullOrEmpty(Desc) ? 0 : Draw.WrapHeight(Desc, DescFont, tw);
-            int block = th + (dh > 0 ? Dpi.S(2) + dh : 0);
-            int y = (Height - block) / 2;
+            int mh = MoreH(tw);
+            int block = th + (dh > 0 ? Dpi.S(2) + dh : 0) + mh;
+            int y = Under(Width) ? Dpi.S(14) : (Height - block) / 2;
             Draw.Text(g, Title, Danger ? Fonts.UiSemibold : Fonts.Ui, new Rectangle(tx, y, tw, th), Danger ? theme.ErrFg : theme.Text, Draw.Line);
             if (Danger && !string.IsNullOrEmpty(RiskTag))
             {
-                int w = Draw.Measure(Title, Danger ? Fonts.UiSemibold : Fonts.Ui).Width + Dpi.S(10);
+                int w = Draw.Measure(Title, Fonts.UiSemibold).Width + Dpi.S(10);
                 Size ts = Draw.Measure(RiskTag, Fonts.SmallSemibold);
                 Rectangle tr = new Rectangle(tx + w, y + (th - ts.Height - Dpi.S(4)) / 2, ts.Width + Dpi.S(14), ts.Height + Dpi.S(4));
                 Shapes.Fill(g, tr, tr.Height / 2f, theme.ErrBg);
                 Draw.Text(g, RiskTag, Fonts.SmallSemibold, tr, theme.ErrFg, Draw.Line | TextFormatFlags.HorizontalCenter);
             }
-            if (dh > 0) Draw.Text(g, Desc, DescFont, new Rectangle(tx, y + th + Dpi.S(2), tw, dh + 2), theme.Text2, Draw.Wrap);
+            if (Marked)
+            {
+                int d = Dpi.S(7);
+                int x = tx + Math.Min(tw - d, Draw.Measure(Title, Fonts.Ui).Width + Dpi.S(8));
+                Shapes.Fill(g, new RectangleF(x, y + (th - d) / 2f, d, d), d / 2f, theme.Accent);
+            }
+            int ly = y + th;
+            if (dh > 0)
+            {
+                Draw.Text(g, Desc, DescFont, new Rectangle(tx, ly + Dpi.S(2), tw, dh + 2), theme.Text2, Draw.Wrap);
+                ly += Dpi.S(2) + dh;
+            }
+            if (HasMore)
+            {
+                ly += Dpi.S(2);
+                if (expanded)
+                {
+                    int eh = Draw.WrapHeight(More, Fonts.Small, tw);
+                    Draw.Text(g, More, Fonts.Small, new Rectangle(tx, ly, tw, eh + 2), theme.Text2, Draw.Wrap);
+                    ly += eh + Dpi.S(4);
+                }
+                string label = expanded ? "Less" : "More";
+                Font f = linkHot ? new Font(Fonts.Small, FontStyle.Underline) : Fonts.Small;
+                try
+                {
+                    link = new Rectangle(tx, ly, Draw.Measure(label, f).Width + Dpi.S(4), Fonts.Small.Height);
+                    Draw.Text(g, label, f, link, theme.Accent, Draw.Line);
+                }
+                finally { if (linkHot) f.Dispose(); }
+            }
             if (Accessory == null && !string.IsNullOrEmpty(Value))
             {
                 int vw = RightW(Width) - Dpi.S(20);
@@ -610,6 +698,21 @@ namespace PxeVice
             IThemed th = c as IThemed;
             if (th != null) th.ApplyTheme(theme);
             HookWheel(c);
+        }
+
+        protected void ClearItems()
+        {
+            col.SuspendLayout();
+            foreach (Control c in items) col.Controls.Remove(c);
+            items.Clear();
+            col.ResumeLayout(false);
+            scroll.AutoScrollPosition = new Point(0, 0);
+        }
+
+        protected void ScrollTo(Control c)
+        {
+            if (c == null || !items.Contains(c)) return;
+            scroll.AutoScrollPosition = new Point(0, Math.Max(0, c.Top - Dpi.S(8)));
         }
 
         protected void Relayout()

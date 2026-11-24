@@ -762,7 +762,7 @@ namespace PxeVice
             switch (o.Page)
             {
                 case "about": page = new AboutDialog(theme); break;
-                case "settings": page = new SettingsDialog(theme, site != null ? site.Info : null); break;
+                case "settings": SettingsDialog.RememberPage = false; page = new SettingsDialog(theme, site != null ? site.Info : null, o.Select); break;
                 case "help-problem":
                     ProblemDialog pd = new ProblemDialog(theme, MakeProblem());
                     pd.Fill("The reset says it worked, but the machine still does not get a task sequence.", "The machine to start the task sequence.", "Select the machine, press Reset, boot from the network.");
