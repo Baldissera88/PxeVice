@@ -1,5 +1,13 @@
 # Changelog
 
+## PxeVice 0.7.0
+
+24 November 2026.
+
+- **In short**: the top of every machine's check now answers in plain words, for someone who does not know ConfigMgr: whether the machine will get an installation, **why it starts from the network**, **what stops it**, **who can fix it** (you with Reset, or a ConfigMgr administrator) and **what to do**. Under it, **How the PXE boot went** lists the steps with OK or STOPPED: the machine asked, what the site knows it as, whether an installation was found, and whether it was offered
+- The technical findings, with the log lines, follow under **PXE check, the details**, as before
+- The same summary is at the top of **Copy for the ticket** and of the HTML report, so a ticket can be read without knowing ConfigMgr
+
 ## PxeVice 0.6.1
 
 23 November 2026.

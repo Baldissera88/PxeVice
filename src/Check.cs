@@ -432,6 +432,7 @@ namespace PxeVice
             if (m.SmbiosGuid != null) b.Append("SMBIOS GUID: ").Append(m.SmbiosGuid).Append("\r\n");
             if (m.LastRequest != null) b.Append("Last PXE boot: ").Append(Txt.Local(m.LastRequest.Utc)).Append(" on ").Append(m.LastRequest.Server).Append(", ").Append(m.LastRequest.Result).Append("\r\n");
             b.Append("\r\n");
+            b.Append(Summary.AsText(Summary.From(m, findings, now))).Append("\r\n");
             foreach (Finding f in findings)
             {
                 b.Append("[").Append(f.SeverityText).Append("] ").Append(f.Title).Append("\r\n");

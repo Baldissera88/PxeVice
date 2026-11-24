@@ -1200,6 +1200,32 @@ namespace PxeVice
             return theme.Text3;
         }
 
+        // The check in plain words, for someone who does not know ConfigMgr.
+        void InShort(RichTextBox r, Machine m, List<Finding> list)
+        {
+            Summary u = Summary.From(m, list, DateTime.UtcNow);
+            Color tone = u.Verdict == Verdict.Good ? theme.OkFg : u.Verdict == Verdict.Problem ? theme.ErrFg : theme.Accent;
+            r.SelectionFont = Fonts.UiSemibold;
+            r.SelectionColor = tone;
+            r.AppendText(u.Headline + "\n");
+            r.AppendText("\n");
+            Field(r, "Why it starts from the network", u.Why, false);
+            if (u.Stops != null) { r.AppendText("\n"); Field(r, "What stops it", u.Stops, false); }
+            if (u.FixText != null) { r.AppendText("\n"); Field(r, "Who can fix it", u.FixText, false); }
+            if (u.Next != null) { r.AppendText("\n"); Field(r, "What to do", u.Next, false); }
+            r.AppendText("\n");
+            r.SelectionFont = Fonts.Small;
+            r.SelectionColor = theme.Text3;
+            r.AppendText("How the PXE boot went\n");
+            foreach (TrailStep t in u.Trail)
+            {
+                r.SelectionFont = Fonts.SmallSemibold;
+                r.SelectionColor = t.Ok == true ? theme.OkFg : t.Ok == false ? theme.ErrFg : theme.Text3;
+                r.AppendText((t.Ok == true ? "OK" : t.Ok == false ? "STOPPED" : "NOTE") + "   ");
+                Plain(r, t.Text, theme.Text);
+            }
+        }
+
         void Findings(RichTextBox r, List<Finding> list)
         {
             foreach (Finding f in list)
@@ -1316,11 +1342,17 @@ namespace PxeVice
                 Small(r, "WAITING FOR THE NEXT PXE BOOT since " + Txt.Local(w.Since).Substring(11) + (watching ? "" : ". Turn on Watch to see it come in."), theme.Accent, false);
             }
 
-            Section(r, "PXE check");
             List<Finding> f;
-            if (cache.Results.TryGetValue(m.Key ?? "", out f)) Findings(r, f);
+            if (cache.Results.TryGetValue(m.Key ?? "", out f))
+            {
+                Section(r, "In short");
+                InShort(r, m, f);
+                Section(r, "PXE check, the details");
+                Findings(r, f);
+            }
             else
             {
+                Section(r, "PXE check");
                 Plain(r, "Checking the deployments, collections and boot images for this machine…", theme.Text3);
                 StartCheck(m);
             }

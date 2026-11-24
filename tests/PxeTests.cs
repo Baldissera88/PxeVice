@@ -16,6 +16,7 @@ namespace PxeVice.Tests
             TwoBoots();
             DemoRequests();
             CheckLab();
+            InShort();
             CheckRequired();
             CheckKiosk();
             CheckDuplicate();
@@ -170,6 +171,27 @@ namespace PxeVice.Tests
             List<string> t = new List<string>();
             foreach (Finding x in f) t.Add(x.Severity + ":" + x.Title);
             return string.Join(" | ", t.ToArray());
+        }
+
+        static void InShort()
+        {
+            DemoSite site = new DemoSite(Now);
+            SiteData d = ReadDemo(site);
+            Machine lab = Find(d, "00:15:5D:23:21:3B");
+            Summary a = Summary.From(lab, Checker.Check(site, lab, new CheckCache(), Now), Now);
+            T.Equal(Verdict.Problem, a.Verdict, "in short: lab machine is a problem");
+            T.Equal(FixBy.Reset, a.Fix, "in short: lab machine is fixed with Reset");
+            T.Check(a.Stops != null && a.Next != null && a.Why != null, "in short: says why, what stops it and what to do");
+            T.Check(a.Trail.Count >= 3 && a.Trail[a.Trail.Count - 1].Ok == false, "in short: the trail ends where it stopped");
+            Machine kiosk = Find(d, "70:B5:E8:21:9C:44");
+            Summary k = Summary.From(kiosk, Checker.Check(site, kiosk, new CheckCache(), Now), Now);
+            T.Equal(FixBy.Admin, k.Fix, "in short: a deployment problem needs an administrator");
+            T.Check(k.FixText.Contains("administrator"), "in short: says who");
+            string text = Checker.AsText(kiosk, Checker.Check(site, kiosk, new CheckCache(), Now), Now);
+            T.Check(text.Contains("In short:") && text.Contains("How the PXE boot went"), "in short: the ticket text starts with it");
+            Machine none = new Machine();
+            Summary w = Summary.From(none, new List<Finding>(), Now);
+            T.Equal(Verdict.Waiting, w.Verdict, "in short: nothing known and nothing blocking waits");
         }
 
         static void CheckLab()

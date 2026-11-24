@@ -107,3 +107,10 @@ A checklist for checking PxeVice against a real Configuration Manager site. Use 
 - "Delete the device from ConfigMgr" is red, tagged High risk, and off
 - Turn it on: the step in the list is red, and the PXE service restart turns on
 - Press Reset: a question names the device, and No is the default. No keeps the dialog open and changes nothing
+
+## In short
+
+- Select a machine: the top of the detail pane says in one line whether it will get an installation, in the colour of the result
+- Why it starts from the network, What stops it, Who can fix it and What to do are written without ConfigMgr words
+- How the PXE boot went shows OK and STOPPED lines that end where the boot stopped
+- Copy for the ticket and Export start with the same text

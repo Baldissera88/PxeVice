@@ -59,7 +59,16 @@ footer{margin-top:40px;color:var(--text3);font-size:12px}
                 b.Append("</div></div>");
                 if (f != null)
                 {
-                    b.Append("<h3>PXE check</h3>");
+                    Summary u = Summary.From(m, f, now);
+                    b.Append("<h3>In short</h3><div class=\"f ").Append(u.Verdict == Verdict.Good ? "Ok" : u.Verdict == Verdict.Problem ? "Blocks" : "Info").Append("\"><b>").Append(H(u.Headline)).Append("</b>");
+                    b.Append("<div class=\"todo\"><b>Why it starts from the network:</b> ").Append(H(u.Why)).Append("</div>");
+                    if (u.Stops != null) b.Append("<div class=\"todo\"><b>What stops it:</b> ").Append(H(u.Stops)).Append("</div>");
+                    if (u.FixText != null) b.Append("<div class=\"todo\"><b>Who can fix it:</b> ").Append(H(u.FixText)).Append("</div>");
+                    if (u.Next != null) b.Append("<div class=\"todo\"><b>What to do:</b> ").Append(H(u.Next)).Append("</div>");
+                    b.Append("<div class=\"todo\"><b>How the PXE boot went:</b></div><ul>");
+                    foreach (TrailStep t in u.Trail) b.Append("<li class=\"").Append(t.Ok == true ? "good" : t.Ok == false ? "bad" : "").Append("\">").Append(t.Ok == true ? "OK: " : t.Ok == false ? "Stopped: " : "").Append(H(t.Text)).Append("</li>");
+                    b.Append("</ul></div>");
+                    b.Append("<h3>PXE check, the details</h3>");
                     foreach (Finding x in f)
                     {
                         b.Append("<div class=\"f ").Append(x.Severity).Append("\"><span class=\"tag\">").Append(H(x.SeverityText)).Append("</span><b>").Append(H(x.Title)).Append("</b>");

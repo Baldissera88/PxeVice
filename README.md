@@ -56,7 +56,7 @@ Each finding says what happened, what to do, and the evidence: the log lines, th
 |---|---|
 | Counts | Machines, not serviced, PXE boots, PXE flags, unknown computers, Unknown device records and deleted devices. Click one to filter |
 | Machines | One line per machine with something left behind, or a PXE boot that was not serviced, newest first. Matched on the SMBIOS GUID, or on the MAC address when there is no GUID |
-| PXE check | For the selected machine: the findings, the machine's MAC addresses, SMBIOS GUID, device records and PXE flags, its last PXE boots, and what a reset will do |
+| In short, PXE check | For the selected machine: first a short answer in plain words (will it get an installation, why it starts from the network, what stops it, who can fix it, what to do, and how the PXE boot went step by step), then the findings, the machine's MAC addresses, SMBIOS GUID, device records and PXE flags, its last PXE boots, and what a reset will do |
 | PXE boots | Every PXE boot in SMSPXE.log: the time, the machine, what it got, the MAC address, the SMBIOS GUID, the resource the site answered for, the architecture and the server, with the log lines behind it |
 | PXE flags | Every row in `LastPXEAdvertisement`, with the device or Unknown Computer object it belongs to and the task sequence name |
 | Activity | The changes made in this session, and the next PXE boot after each reset |
