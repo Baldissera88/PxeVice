@@ -36,6 +36,7 @@ namespace PxeVice.Tests
             FeedbackTests.Run();
             SettingsTests.Run();
             GovernanceTests.Run();
+            OverviewTests.Run();
             try { System.IO.Directory.Delete(ResetBackup.FolderOverride, true); } catch (Exception) { }
             Console.WriteLine(T.Passed + " passed, " + T.Failed + " failed");
             return T.Failed == 0 ? 0 : 1;

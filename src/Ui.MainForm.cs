@@ -14,7 +14,7 @@ namespace PxeVice
     public sealed partial class MainForm : Form
     {
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
-        const int TabMachines = 0, TabRequests = 1, TabFlags = 2, TabActivity = 3;
+        const int TabOverview = 0, TabMachines = 1, TabRequests = 2, TabFlags = 3, TabActivity = 4;
         const string FilterNotServiced = "notserviced", FilterUnknown = "unknown", FilterRecords = "records", FilterDeleted = "deleted";
 
         Theme theme;
@@ -78,7 +78,10 @@ namespace PxeVice
         readonly Table<Activity> activity = new Table<Activity>();
         readonly Label activityTitle = new Label();
         readonly FlatButton bActivityLog = new FlatButton("Open the activity log in LogVice", Glyphs.Log);
-        readonly Control[] views = new Control[4];
+        readonly Control[] views = new Control[5];
+        readonly OverviewView overview = new OverviewView();
+        readonly NavHistory nav = new NavHistory();
+        bool navigating;
         readonly List<Control> bars = new List<Control>();
         readonly TextBox search = new TextBox();
         readonly System.Windows.Forms.Timer searchTimer = new System.Windows.Forms.Timer();
@@ -241,7 +244,7 @@ namespace PxeVice
             Tip(cDeleted, "PXE flags of devices that were deleted from the console");
 
             tabs.Dock = DockStyle.Top;
-            tabs.SetTabs("Machines", "PXE boots", "PXE flags", "Activity");
+            tabs.SetTabs("Overview", "Machines", "PXE boots", "PXE flags", "Activity");
             themed.Add(tabs);
 
             content.Dock = DockStyle.Fill;
@@ -304,7 +307,7 @@ namespace PxeVice
                 if (m.Kind == MachineKinds.Deleted) return theme.WarnFg;
                 return Color.Empty;
             };
-            machines.SelectionChanged += delegate { ShowMachine(machines.SelectedItems); };
+            machines.SelectionChanged += delegate { ShowMachine(machines.SelectedItems); OpenedMachine(machines.SelectedItems); Visited(); };
             machines.EmptyText = "Nothing is left behind, and no PXE boot went unserviced.";
             machines.MenuExtras = delegate (ContextMenuStrip m, Machine x)
             {
@@ -426,6 +429,9 @@ namespace PxeVice
             ah.Controls.Add(ab);
             views[TabActivity] = ah;
 
+            views[TabOverview] = overview;
+            overview.Dock = DockStyle.Fill;
+            themed.Add(overview);
             foreach (Control v in views)
             {
                 v.Visible = false;
@@ -808,6 +814,7 @@ namespace PxeVice
         void Bind(SiteData d, bool quiet)
         {
             data = d;
+            RefreshOverview();
             if (Program.Start.Shot != null && !shotStarted) BeginInvoke((MethodInvoker)delegate { Shot(); });
             SiteInfo info = site.Info;
             subtitle.Text = info.Describe() + " · read " + d.ReadUtc.ToLocalTime().ToString("HH:mm:ss", Inv);
@@ -1114,7 +1121,11 @@ namespace PxeVice
 
         bool Matches(Machine m, string q)
         {
-            // A MAC address can be typed with dashes, colons or nothing in between.
+            // A MAC address can be typed with dashes, colons, dots or nothing in between, and a GUID with braces.
+            string norm;
+            QueryKind kind = MachineSearch.Kind(q, out norm);
+            if (kind == QueryKind.Mac) { foreach (string x in m.AllMacs) if (x == norm) return true; return false; }
+            if (kind == QueryKind.Guid) return string.Equals(m.SmbiosGuid, norm, StringComparison.OrdinalIgnoreCase);
             string mac = Ids.Mac(q);
             foreach (string x in m.AllMacs) if (mac != null ? x == mac : Has(x, q)) return true;
             if (Has(m.Name, q) || Has(m.SmbiosGuid, q) || Has(m.Deployments, q) || Has(m.Found, q) || Has(m.ResourceIds, q)) return true;
@@ -1124,6 +1135,10 @@ namespace PxeVice
 
         bool RequestMatches(PxeRequest r, string q)
         {
+            string norm;
+            QueryKind kind = MachineSearch.Kind(q, out norm);
+            if (kind == QueryKind.Mac) return r.MacAddress == norm;
+            if (kind == QueryKind.Guid) return string.Equals(r.SmbiosGuid, norm, StringComparison.OrdinalIgnoreCase);
             string mac = Ids.Mac(q);
             if (mac != null) return r.MacAddress == mac;
             return Has(r.MacAddress, q) || Has(r.SmbiosGuid, q) || Has(RequestName(r), q) || Has(r.OfferId, q) || Has(DeploymentName(r.OfferId), q) || Has(r.Server, q) || Has(r.Result, q);
@@ -1166,6 +1181,8 @@ namespace PxeVice
         {
             for (int i = 0; i < views.Length; i++) views[i].Visible = i == tabs.Selected;
             views[tabs.Selected].BringToFront();
+            if (tabs.Selected == TabOverview) RefreshOverview();
+            Visited();
         }
 
         void ShowMachineOf(PxeFlag f)
@@ -2069,10 +2086,13 @@ namespace PxeVice
                     case Keys.Control | Keys.E: ExportReport(); return true;
                     case Keys.Control | Keys.L: PxeLogMenu(null); return true;
                     case Keys.Control | Keys.Oemcomma: OpenSettings(); return true;
-                    case Keys.Control | Keys.D1: tabs.Selected = TabMachines; return true;
-                    case Keys.Control | Keys.D2: tabs.Selected = TabRequests; return true;
-                    case Keys.Control | Keys.D3: tabs.Selected = TabFlags; return true;
-                    case Keys.Control | Keys.D4: tabs.Selected = TabActivity; return true;
+                    case Keys.Control | Keys.D1: tabs.Selected = TabOverview; return true;
+                    case Keys.Control | Keys.D2: tabs.Selected = TabMachines; return true;
+                    case Keys.Control | Keys.D3: tabs.Selected = TabRequests; return true;
+                    case Keys.Control | Keys.D4: tabs.Selected = TabFlags; return true;
+                    case Keys.Control | Keys.D5: tabs.Selected = TabActivity; return true;
+                    case Keys.Alt | Keys.Left: GoBack(); return true;
+                    case Keys.Alt | Keys.Right: GoForward(); return true;
                     case Keys.Control | Keys.F:
                         tabs.Selected = TabMachines;
                         search.Focus();
