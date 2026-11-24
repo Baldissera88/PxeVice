@@ -74,6 +74,7 @@ namespace PxeVice
         readonly Panel requestFooter = new Panel();
         readonly FlatButton bRequestMachine = new FlatButton("Show the machine", Glyphs2.Device);
         readonly FlatButton bRequestLog = new FlatButton("SMSPXE.log", Glyphs.Log);
+        readonly FlatButton bRequestReset = new FlatButton("Reset this machine", Glyphs2.Reset);
         readonly Table<PxeFlag> flags = new Table<PxeFlag>();
         readonly Table<Activity> activity = new Table<Activity>();
         readonly Label activityTitle = new Label();
@@ -372,9 +373,22 @@ namespace PxeVice
             bRequestMachine.Click += Safe.Wrap(delegate { if (requests.Current != null) ShowMachineOf(requests.Current); });
             bRequestLog.Dock = DockStyle.Left;
             bRequestLog.Click += Safe.Wrap(delegate { if (requests.Current != null) PxeLogMenu(requests.Current.Server); });
+            bRequestReset.Dock = DockStyle.Right;
+            bRequestReset.Click += Safe.Wrap(delegate
+            {
+                // The machine behind the boot is selected on the Machines tab, and the reset opens for it.
+                if (requests.Current == null) return;
+                Machine m = MachineOf(requests.Current);
+                if (m == null) { Status("The machine is not on the Machines tab. Its last boot may be older than the time set in Settings."); return; }
+                ShowMachineOf(requests.Current);
+                tabs.Selected = TabMachines;
+                ResetSelected();
+            });
             themed.Add(bRequestMachine);
+            themed.Add(bRequestReset);
             themed.Add(bRequestLog);
             requestFooter.Controls.Add(bRequestMachine);
+            requestFooter.Controls.Add(bRequestReset);
             requestFooter.Controls.Add(bRequestLog);
             Panel requestHost = new Panel();
             requestHost.Controls.Add(requestDetail);
@@ -577,7 +591,7 @@ namespace PxeVice
                 if (p.Parent != null) p.Parent.BackColor = t.Card;
             }
             foreach (IThemed x in themed) x.ApplyTheme(t);
-            bResetSelected.BackColor = bCopyDetail.BackColor = bRequestMachine.BackColor = bRequestLog.BackColor = t.Card;
+            bResetSelected.BackColor = bCopyDetail.BackColor = bRequestMachine.BackColor = bRequestReset.BackColor = bRequestLog.BackColor = t.Card;
             BannerColors();
             try
             {
@@ -781,12 +795,23 @@ namespace PxeVice
                     break;
                 case "help-author": page = new TellAuthorDialog(theme); break;
                 case "help": HelpMenu(); break;
+                case "health": page = new HealthDialog(theme, Health.Run(site, new CheckCache(), DateTime.UtcNow)); break;
+                case "reset":
+                    List<Machine> pick = machines.SelectedItems;
+                    if (pick.Count == 1)
+                    {
+                        ResetOptions ro = new ResetOptions();
+                        ro.DeleteDevices = true;
+                        ro.RestartPxeService = true;
+                        page = new ResetDialog(theme, pick, Engine.BuildPlan(site, pick, ro), site.Info);
+                    }
+                    break;
             }
             if (page != null)
             {
                 page.StartPosition = FormStartPosition.Manual;
                 page.Location = new Point(Left + 40, Top + 40);
-                if (!o.Size.IsEmpty && o.Page != null && o.Page.StartsWith("help-")) page.Size = o.Size;
+                if (!o.Size.IsEmpty && o.Page != null && (o.Page.StartsWith("help-") || o.Page == "health" || o.Page == "reset")) page.Size = o.Size;
                 page.Show(this);
             }
             // Keep the pointer out of the picture, so nothing shows as hovered.
@@ -1486,6 +1511,7 @@ namespace PxeVice
             r.SelectionIndent = Dpi.S(12);
             r.SelectionRightIndent = Dpi.S(8);
             bRequestMachine.Enabled = q != null && MachineOf(q) != null;
+            bRequestReset.Enabled = q != null && MachineOf(q) != null && !busy;
             bRequestLog.Enabled = q != null;
             if (q == null)
             {

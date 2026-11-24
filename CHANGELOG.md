@@ -1,5 +1,28 @@
 # Changelog
 
+## PxeVice 2.0.0
+
+24 November 2026.
+
+PxeVice, LogVice and TrackVice now release the same way and share a major version. Everything from 0.6.0 to 0.8.0 is part of this version: the plain-words diagnosis, the high risk device deletion, the Help menu and the narrow window.
+
+**New in 2.0.0**
+
+- **Overview**: a home page with what the last day looked like (PXE boots, served, not serviced), the machines that need a look with the ones that were not serviced first, what is left behind most often, the machines opened lately, and links to the PXE health and Help. Open it with Ctrl+1; the other tabs move to Ctrl+2 to Ctrl+5
+- **Back and Forward**: Alt+Left and Alt+Right, and the mouse's back and forward buttons, go between the tabs and machines you looked at
+- **Settings by subject**: General, Site, Service account, Watch and PXE boots, Reset, Updates, LogVice, Data and privacy, and What you need (the rights each part needs). A search finds a setting by name or by what it does, a dot marks what you changed, and each page has its own Reset. Every earlier setting is kept
+- **PXE health of the site** (Help menu, the Overview, or `/health`): the PXE points, whether the PXE service runs on each, unknown computer support, the deployment to All Unknown Computers, the boot image on every PXE point and whether SMSPXE.log can be read. A check that cannot be read is shown as not known, not as a problem. `/health` exits with 2 when something stops PXE
+- **Ticket**: write a ticket number or a reference in the reset. It goes into the activity log with every change (`/ticket` on the command line)
+- **A file before a device is deleted**: PxeVice writes what it knows about the machine, its device records and PXE flags to `%LOCALAPPDATA%\PxeVice\resets` first. If the file cannot be written, nothing is deleted. It is a record to read; PxeVice does not restore from it
+- **Policies for administrators**: `ReadOnly`, `DisableDeviceDeletion`, `RequireTicket` and `MaxMachinesPerReset` under `HKLM\SOFTWARE\Policies\PxeVice`, enforced in the window and on the command line, with an administrative template in `policy/`
+- **Tell the user how to boot**: **Copy for the user** in the reset writes a short message in plain words with the boot key for Dell, HP, Lenovo, Surface, Hyper-V or VMware
+- **A machine that comes back**: the reset says when the machine was reset more than once in the last 14 days
+- **Reset this machine** on a PXE boot opens the reset for the machine behind it
+- **Search finds a MAC address or an SMBIOS GUID however it was copied**: with dashes, colons, dots or none, and a GUID with braces
+- **Releases are built by GitHub Actions**, like LogVice: `PxeVice.exe`, `PxeVice.msi` and `SHA256SUMS.txt` come from the source in the repository, with a signed build attestation, and the release notes start with how to verify them. Dependabot keeps the actions up to date
+
+**Not in 2.0.0**: adding a machine to a collection, resetting from a list, checking the signature of updates, and restoring flags from the file. They change the production site or need a certificate, and cannot be tested without a real site. See [ROADMAP.md](ROADMAP.md).
+
 ## PxeVice 0.8.0
 
 24 November 2026.

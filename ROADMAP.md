@@ -2,68 +2,39 @@
 
 What is planned for the next versions of PxeVice.
 
-Released in 0.5.0: the themes of TrackVice. Released in 0.4.0: PxeVice tells when there is a new version and can install it. Released in 0.3.2: deleted devices are checked, the PXE service is restarted with them, and PxeVice says when the PXE point still remembers one. Released in 0.3.1: PXE boots from SMSPXE.log, the PXE check, Watch, next boot after a reset, saved sites, reports, the service account and every PXE distribution point. See CHANGELOG.md.
+Released in 2.0.0: Overview, Back and Forward, Settings by subject, PXE health, tickets, a file before a device is deleted, policies for administrators, boot keys for the user, and releases built by GitHub Actions. Released in 0.5.0 to 0.8.0: the themes and Help of TrackVice, plain-words diagnosis, high risk device deletion and updates. Released in 0.3.x: PXE boots from SMSPXE.log, the PXE check, Watch, saved sites, reports and the service account. See CHANGELOG.md.
 
 Wishes are welcome: [Discussions](https://github.com/Baldissera88/PxeVice/discussions) or an issue on GitHub.
 
-## 1. Find the machine without the MAC address
+The first four change a production site or need a certificate, so they wait for a lab to test them on.
 
-A supporter often has only a name, a serial number or a user.
-
-- Search in Machines on name, MAC address, SMBIOS GUID, serial number and the user from the device record, with a short hint of what was matched.
-- A button on a PXE boot in the PXE boots tab: **Reset this machine**. It opens the reset for the machine behind that boot, so the supporter can ask the user to PXE boot once and then reset what just came in.
-- "Last PXE boot that was not serviced" as a ready filter, newest first, since it is almost always the machine the supporter is looking for.
-
-## 2. A ticket number with every change
-
-- A field in the reset: **Ticket / reference** (optional, can be made required in Settings). It is written to the activity log, the Activity tab and the report.
-- The summary for the ticket gets one more button: **Copy for a ticket**, a short plain text with the machine, what blocked PXE, what was changed, by whom and with which account, and the time.
-
-## 3. Undo: save what is deleted
-
-- Before a reset deletes anything, PxeVice saves the rows it will remove (`LastPXEAdvertisement` rows and the key data of the device records: name, resource ID, MAC address, SMBIOS GUID, collections) to a file next to the activity log.
-- **Open the last reset** shows what was changed. Rows from `LastPXEAdvertisement` can be put back from the file. Device records cannot be made again, so the file is there to see what was removed.
-
-## 4. PXE health of the site
-
-The PXE check looks at one machine. This looks at the PXE points.
-
-- A page that lists every PXE distribution point and says for each: the PXE responder and WDS services are running, SMSPXE.log has no recent errors, the boot images are on the point and up to date, the PXE certificate is valid, unknown computer support is on, and the point has answered a PXE boot lately.
-- Findings in the same worst-first order as the PXE check, with what to do.
-- Command line: `/health`, with an exit code that says when something is wrong, so it can run as a scheduled check.
-
-## 5. Overview as the home page
-
-- Like TrackVice: a first page with how many PXE boots came in the last 24 hours, how many were not serviced, how many machines have something left, and the most common reasons.
-- The numbers open the list behind them. A recent machines list with the last ones that were reset.
-
-## 6. Get a known machine ready for PXE
+## 1. Add a machine to a collection
 
 When the PXE check says that no task sequence is deployed to the machine, the fix is often to put it in a collection that has one.
 
-- From a finding "no task sequence deployed to the machine", offer **Add to collection**: choose a collection that has a task sequence deployed (the ones PxeVice already finds), see what it will add, and add the machine as a direct member. Asks first, shows the change, and is in the activity log.
-- Only collections that the account can change are offered, and only direct membership is used.
+- From that finding, **Add to collection**: choose a collection that has a task sequence deployed, see what it will add, and add the machine as a direct member. It asks first, shows the change and is in the activity log.
+- Only collections the account can change are offered, and only direct membership is used.
 
-## 7. Roles for supporters
+## 2. Reset from a list
 
-- A read-only mode, set per site, so some supporters can look and not change anything. The buttons that change things are gone and the command line refuses `/reset`.
-- A limit in Settings on how many machines one reset can touch.
-- The service account and these settings can be put in a file in the install folder, so IT sets them once for all supporters.
+A lab of 30 PCs that is re-imaged every term: paste the names or MAC addresses, check what PxeVice found for each, and reset them in one go, within the limit of `MaxMachinesPerReset`.
 
-## 8. Help, like in TrackVice
-
-- Help > **Report a problem** (copies what is useful: version, site settings without passwords, the last lines of the activity log), **Suggest a feature** and **Tell the author**.
-- A "What you need" page in Settings that says which rights the account needs on the SMS Provider, the site database and the PXE distribution points, and what each part is used for.
-
-## 9. The window at small sizes
-
-- Check every tab, Settings and the dialogs at 900 x 600 and at 125 % and 150 % scaling, with the grid, the detail text and the buttons.
-- The toolbar folds into a "More" menu when there is no room.
-
-## 11. Signed exe and MSI
+## 3. Signed exe and MSI, and a signature check for updates
 
 Today SmartScreen says "Unknown publisher" on a downloaded PxeVice.msi, and AppLocker or WDAC need your own certificate.
 
-- Sign PxeVice.exe and PxeVice.msi in `build.sh`, `build.ps1` and the GitHub workflow, with a code signing certificate or Microsoft's signing service, and a timestamp so the signature stays valid after the certificate expires.
-- The updater checks the signature of a downloaded file as well as its checksum.
-- The README says how to trust the certificate with AppLocker or WDAC, and what SmartScreen does with a new certificate (an EV certificate is trusted at once, other certificates build a reputation over time).
+- Sign PxeVice.exe and PxeVice.msi in the GitHub workflow, with a timestamp.
+- The updater checks the signature of a downloaded file as well as its checksum and the build attestation.
+
+## 4. Restore flags from the file
+
+The file written before a deletion holds the `LastPXEAdvertisement` rows. Offer to put them back. Device records cannot be made again, so the file stays a record for those.
+
+## 5. Waiting window and active clients
+
+- After a reset, say how long PxeVice waits for the next PXE boot, and when to give up.
+- Warn when a deleted device still has an active client, since it registers again.
+
+## 6. The same page in every Vice app
+
+Move the Overview, Settings and Help code that PxeVice and TrackVice share into one place, so a fix in one reaches the others.

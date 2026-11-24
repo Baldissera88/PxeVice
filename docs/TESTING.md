@@ -122,3 +122,18 @@ A checklist for checking PxeVice against a real Configuration Manager site. Use 
 - Make the window narrow (about 700 px wide): Watch, Site and others fold into More, and More opens a menu with them
 - At 125 % and 150 % scaling every dialog fits on the screen
 - `PxeVice.exe --demo --shot out.png --page help-problem --size 1100x700` saves a picture of the page and closes
+
+## 2.0.0
+
+- [ ] **Overview** opens first, says how many PXE boots came in the last day and how many machines need a look, and **Open** goes to the machine. A machine opened lately is listed
+- [ ] **Alt+Left**, **Alt+Right** and the mouse's back and forward buttons move between the tabs and machines
+- [ ] **Settings** has nine subjects, the search finds *password* and *CM_*, a changed setting gets a dot, and **Reset** on a page puts the defaults back without touching the account or the saved sites
+- [ ] **Help > PXE health of the site** shows OK, PROBLEM or not known for each point and for the deployment to All Unknown Computers. Turn off unknown computer support on a PXE point: it becomes a problem. `PxeVice.exe /health` exits with 2
+- [ ] **Ticket**: write one in a reset. Every line the reset adds to the activity log ends with `ticket <text>`
+- [ ] **Delete the device** writes a file in `%LOCALAPPDATA%\PxeVice\resets` before the device is deleted. Make the folder read-only: the reset stops and deletes nothing
+- [ ] **Policies**: import `policy/PxeVice.admx`. With *Read only* on, Reset says it is not allowed in the window and with `/reset`. With *Require a ticket* on, Reset stays off until a ticket is written. With *Most machines in one reset* set to 1, two machines are refused
+- [ ] **Copy for the user** puts a message with the right boot key on the clipboard
+- [ ] Reset the same machine twice within a day: the second reset says it was reset before
+- [ ] Search finds a machine by its MAC address written with dashes, with dots and without separators, and by its SMBIOS GUID with braces
+- [ ] **Reset this machine** on a PXE boot opens the reset for the machine
+- [ ] A release made from a tag has `PxeVice.exe`, `PxeVice.msi` and `SHA256SUMS.txt`, and `gh attestation verify .\PxeVice.msi -R Baldissera88/PxeVice` says the build is from the repository

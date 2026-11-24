@@ -93,7 +93,7 @@ namespace PxeVice
     public static class SettingsCatalog
     {
         public const string General = "general", Site = "site", Account = "account", Watch = "watch", Resets = "reset",
-            Updates = "updates", LogVice = "logvice", Data = "data";
+            Updates = "updates", LogVice = "logvice", Data = "data", Needs = "needs";
 
         // The subject Settings opened on last.
         public const string LastPagePref = "SettingsPage";
@@ -108,6 +108,7 @@ namespace PxeVice
             P(Updates, "Updates", "The version you have and the newest on GitHub."),
             P(LogVice, "LogVice", "Where LogVice is, for the Open in LogVice button."),
             P(Data, "Data and privacy", "What PxeVice keeps on this PC and what it sends."),
+            P(Needs, "What you need", "The rights the account needs, and what each is used for."),
         };
 
         public static readonly SettingDef[] All =
@@ -142,6 +143,10 @@ namespace PxeVice
             D("logvice", LogVice, "LogVice", "Where LogVice is.", null, "log viewer browse locate", "LogVicePath", null),
 
             D("settingsfile", Data, "Where settings are stored", "In the registry, for your Windows user only.", null, "registry hkcu"),
+            D("needsread", Needs, "Reading the site", "A role that can read devices, collections, deployments, task sequences, content status and distribution points, such as Read-only Analyst, on the SMS Provider.", "Remote WMI to the SMS Provider on the site server.", "rights role wmi provider analyst permissions"),
+            D("needsdb", Needs, "The site database", "SELECT on v_R_System, v_Advertisement, v_Package and LastPXEAdvertisement, with Windows authentication.", "DELETE on LastPXEAdvertisement is only needed for a reset.", "sql select delete rights permissions"),
+            D("needslog", Needs, "SMSPXE.log", "Read access to the log on every PXE distribution point, through SMS_DP$, the site's share or the administrative share.", null, "share log read permissions"),
+            D("needsreset", Needs, "Resetting", "Rights to delete devices, and DELETE on LastPXEAdvertisement. Administrator on the distribution point to restart the PXE service.", "Deleting a device cannot be undone from PxeVice. PxeVice writes what it knows to a file first.", "delete restart service administrator rights permissions"),
             D("activitylog", Data, "Activity log", "Every change PxeVice makes, with who made it, in the CMTrace format.", null, "cmtrace history audit folder"),
         };
 

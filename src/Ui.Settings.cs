@@ -15,7 +15,7 @@ namespace PxeVice
         // Off for screenshots, so the subject shown is not saved.
         public static bool RememberPage = true;
 
-        static readonly string[] PageGlyphs = { Glyphs2.Settings, Glyphs3.Server, Glyphs.Shield, Glyphs.Watch, Glyphs3.Delete, Glyphs2.Sync, Glyphs2.Folder, Glyphs.Log };
+        static readonly string[] PageGlyphs = { Glyphs2.Settings, Glyphs3.Server, Glyphs.Shield, Glyphs.Watch, Glyphs3.Delete, Glyphs2.Sync, Glyphs2.Folder, Glyphs.Log, Glyphs.Info };
 
         readonly ISettingStore store = new PrefsSettingStore();
         readonly SiteInfo info;
@@ -190,6 +190,7 @@ namespace PxeVice
                 case SettingsCatalog.Updates: BuildUpdates(l); break;
                 case SettingsCatalog.LogVice: BuildLogVice(l); break;
                 case SettingsCatalog.Data: BuildData(l); break;
+                case SettingsCatalog.Needs: BuildNeeds(l); break;
             }
             // Rows that other parts of PxeVice make are matched by their title.
             foreach (Control c in l)
@@ -512,6 +513,14 @@ namespace PxeVice
             logViceRow = new SettingRow(Glyphs2.Folder, "LogVice", "", new ButtonStrip(bBrowse, bClear));
             l.Add(Bind("logvice", logViceRow));
             UpdateLogVice();
+        }
+
+        void BuildNeeds(List<Control> l)
+        {
+            l.Add(Bind("needsread", new SettingRow(Glyphs3.Server, "Reading the site", null, null)));
+            l.Add(Bind("needsdb", new SettingRow(Glyphs2.Code, "The site database", null, null)));
+            l.Add(Bind("needslog", new SettingRow(Glyphs.Log, "SMSPXE.log", null, null)));
+            l.Add(Bind("needsreset", new SettingRow(Glyphs3.Delete, "Resetting", null, null)));
         }
 
         void BuildData(List<Control> l)
