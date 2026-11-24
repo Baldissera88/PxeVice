@@ -3,6 +3,7 @@ namespace PxeVice
     using System;
     using System.Collections.Generic;
     using System.Drawing;
+    using System.Diagnostics;
     using System.Globalization;
     using System.IO;
     using System.Runtime.InteropServices;
@@ -10,7 +11,7 @@ namespace PxeVice
     using System.Threading;
     using System.Windows.Forms;
 
-    public sealed class MainForm : Form
+    public sealed partial class MainForm : Form
     {
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
         const int TabMachines = 0, TabRequests = 1, TabFlags = 2, TabActivity = 3;
@@ -60,7 +61,7 @@ namespace PxeVice
         readonly Label statusLeft = new Label();
         readonly Label statusRight = new Label();
 
-        FlatButton bRefresh, bWatch, bReset, bExport, bPxeLog, bSite, bTheme, bSettings, bAbout;
+        FlatButton bRefresh, bWatch, bReset, bExport, bPxeLog, bSite, bTheme, bSettings, bHelp;
         StatChip cMachines, cNotServiced, cRequests, cFlags, cUnknown, cRecords, cDeleted;
 
         readonly Table<Machine> machines = new Table<Machine>();
@@ -85,7 +86,7 @@ namespace PxeVice
         public MainForm(bool demoMode)
         {
             demo = demoMode;
-            Safe.Reporter = delegate (Exception ex) { Status("That did not work: " + ex.Message); };
+            Safe.Reporter = delegate (Exception ex) { ProblemLog.Add(DateTime.Now, ex.GetType().Name + ": " + ex.Message); Status("That did not work: " + ex.Message); };
             Safe.Status = delegate (string s) { Status(s); };
             Engine.RequestWindow = TimeSpan.FromHours(Math.Max(1, Prefs.GetInt("RequestHours", 24)));
             Text = "PxeVice";
@@ -94,8 +95,8 @@ namespace PxeVice
             KeyPreview = true;
             StartPosition = FormStartPosition.CenterScreen;
             Size = new Size(Dpi.S(1320), Dpi.S(820));
-            MinimumSize = new Size(Dpi.S(960), Dpi.S(560));
-            LoadBounds();
+            MinimumSize = new Size(Dpi.S(640), Dpi.S(480));
+            if (Program.Start.Shot == null) LoadBounds();
             BuildHeader();
             BuildViews();
             Controls.Add(content);
@@ -118,7 +119,7 @@ namespace PxeVice
             {
                 Reload(false);
                 if (Prefs.GetBool("WatchOnStart", false)) SetWatch(true);
-                if (!demo) StartUpdateCheck();
+                if (!demo && Program.Start.Shot == null) StartUpdateCheck();
             });
         }
 
@@ -180,12 +181,12 @@ namespace PxeVice
             bSite = Button("Site", Glyphs3.Server, delegate { SiteMenu(); });
             bTheme = Button("", Glyphs.Theme, delegate { CycleTheme(); });
             bSettings = Button("", Glyphs2.Settings, delegate { OpenSettings(); });
-            bAbout = Button("", Glyphs.Info, delegate { About(); });
+            bHelp = Button("", Glyphs2.Help, delegate { HelpMenu(); });
             if (Fonts.Icons == null)
             {
                 bTheme.Text = "Theme";
                 bSettings.Text = "Settings";
-                bAbout.Text = "About";
+                bHelp.Text = "Help";
             }
             Tip(bRefresh, "Read the site and SMSPXE.log again (F5)");
             Tip(bWatch, "Read again every few seconds, and show new PXE boots as they come (Ctrl+W)");
@@ -195,8 +196,8 @@ namespace PxeVice
             Tip(bSite, "Switch between saved sites");
             Tip(bTheme, "Change the theme");
             Tip(bSettings, "Settings (Ctrl+,)");
-            Tip(bAbout, "About PxeVice and the command line (F1)");
-            foreach (FlatButton b in new FlatButton[] { bRefresh, bWatch, bReset, bExport, bPxeLog, bSite, bTheme, bSettings, bAbout })
+            Tip(bHelp, "Report a problem, suggest a feature, About PxeVice (F1)");
+            foreach (FlatButton b in new FlatButton[] { bRefresh, bWatch, bReset, bExport, bPxeLog, bSite, bTheme, bSettings, bHelp })
             {
                 b.Margin = new Padding(Dpi.S(2), 0, 0, 0);
                 toolbar.Controls.Add(b);
@@ -204,6 +205,7 @@ namespace PxeVice
             header.Controls.Add(title);
             header.Controls.Add(subtitle);
             header.Controls.Add(toolbar);
+            BuildHeaderFold();
 
             banner.Dock = DockStyle.Top;
             banner.Height = Dpi.S(44);
@@ -600,6 +602,7 @@ namespace PxeVice
 
         void Banner(string text, bool error, string button)
         {
+            if (error && !string.IsNullOrEmpty(text)) ProblemLog.Add(DateTime.Now, text);
             bannerError = error;
             bannerAction = button;
             bannerText.Text = text ?? "";
@@ -739,9 +742,73 @@ namespace PxeVice
             }
         }
 
+        bool shotStarted;
+
+        // A screenshot run: select what was asked for, open the page, wait a moment and save the picture.
+        void Shot()
+        {
+            if (shotStarted) return;
+            shotStarted = true;
+            StartOptions o = Program.Start;
+            if (!o.Size.IsEmpty) ClientSize = o.Size;
+            if (o.Tab >= 0) tabs.Selected = o.Tab;
+            if (o.Select != null && data != null)
+            {
+                tabs.Selected = TabMachines;
+                foreach (Machine m in data.Machines)
+                    if (m.Name.IndexOf(o.Select, StringComparison.OrdinalIgnoreCase) >= 0 || m.AllMacs.Exists(delegate (string x) { return x.IndexOf(o.Select, StringComparison.OrdinalIgnoreCase) >= 0; })) { Reveal(m); break; }
+            }
+            Form page = null;
+            switch (o.Page)
+            {
+                case "about": page = new AboutDialog(theme); break;
+                case "settings": page = new SettingsDialog(theme, site != null ? site.Info : null); break;
+                case "help-problem":
+                    ProblemDialog pd = new ProblemDialog(theme, MakeProblem());
+                    pd.Fill("The reset says it worked, but the machine still does not get a task sequence.", "The machine to start the task sequence.", "Select the machine, press Reset, boot from the network.");
+                    page = pd;
+                    break;
+                case "help-feature":
+                    FeatureDialog fd = new FeatureDialog(theme);
+                    fd.Fill("A list of machines to reset in one go.", "A lab of 30 PCs is re-imaged every term.", "Paste the names, check them, reset them.");
+                    page = fd;
+                    break;
+                case "help-author": page = new TellAuthorDialog(theme); break;
+                case "help": HelpMenu(); break;
+            }
+            if (page != null)
+            {
+                page.StartPosition = FormStartPosition.Manual;
+                page.Location = new Point(Left + 40, Top + 40);
+                if (!o.Size.IsEmpty && o.Page != null && o.Page.StartsWith("help-")) page.Size = o.Size;
+                page.Show(this);
+            }
+            // Keep the pointer out of the picture, so nothing shows as hovered.
+            try { Cursor.Position = new Point(Screen.PrimaryScreen.Bounds.Right - 2, Screen.PrimaryScreen.Bounds.Bottom - 2); } catch (Exception) { }
+            System.Windows.Forms.Timer t = new System.Windows.Forms.Timer();
+            t.Interval = 1500;
+            t.Tick += delegate
+            {
+                t.Stop();
+                try
+                {
+                    Rectangle b = (page != null ? page : (Form)this).Bounds;
+                    using (Bitmap bmp = new Bitmap(b.Width, b.Height))
+                    {
+                        using (Graphics g = Graphics.FromImage(bmp)) g.CopyFromScreen(b.Location, Point.Empty, b.Size);
+                        bmp.Save(o.Shot, System.Drawing.Imaging.ImageFormat.Png);
+                    }
+                }
+                catch (Exception ex) { Console.Error.WriteLine("Screenshot failed: " + ex.Message); }
+                Close();
+            };
+            t.Start();
+        }
+
         void Bind(SiteData d, bool quiet)
         {
             data = d;
+            if (Program.Start.Shot != null && !shotStarted) BeginInvoke((MethodInvoker)delegate { Shot(); });
             SiteInfo info = site.Info;
             subtitle.Text = info.Describe() + " · read " + d.ReadUtc.ToLocalTime().ToString("HH:mm:ss", Inv);
             Text = "PxeVice - " + (string.IsNullOrEmpty(info.Name) ? info.SiteServer : info.Name) + " (" + info.SiteCode + ")" + (demo ? " (demo)" : "");
@@ -1925,6 +1992,54 @@ namespace PxeVice
                 }
                 else if (data != null) Reload(false);
             }
+        }
+
+        // Help: the GitHub page, Report a problem, Suggest a feature, Tell the author, About.
+        void HelpMenu()
+        {
+            ContextMenuStrip m = Menus.New(theme);
+            Menus.Add(m, "PxeVice on GitHub", delegate { OpenUrl("https://github.com/" + Updater.Repo); });
+            Menus.Separator(m);
+            Menus.Add(m, "Report a problem…", delegate { OpenProblem(); });
+            Menus.Add(m, "Suggest a feature…", delegate { using (FeatureDialog d = new FeatureDialog(theme)) d.ShowDialog(this); });
+            Menus.Add(m, "Tell the author you use PxeVice…", delegate { using (TellAuthorDialog d = new TellAuthorDialog(theme)) d.ShowDialog(this); });
+            Menus.Separator(m);
+            Menus.Add(m, "About PxeVice and the command line  (F1)", delegate { About(); });
+            m.Show(bHelp, new Point(0, bHelp.Height));
+        }
+
+        void OpenUrl(string url)
+        {
+            try { Process.Start(url); }
+            catch (Exception) { Status(Menus.Copy(url) ? "Could not open the browser. The link is on the clipboard." : "Could not open the browser: " + url); }
+        }
+
+        // The names PxeVice takes out of what it adds to a report: the site, its servers, the machines and the user.
+        ProblemReport MakeProblem()
+        {
+            List<string> names = new List<string>();
+            names.Add(Environment.MachineName);
+            names.Add(Environment.UserName);
+            names.Add(Environment.UserDomainName);
+            if (site != null)
+            {
+                SiteInfo i = site.Info;
+                names.Add(i.SiteServer);
+                names.Add(i.Provider);
+                names.Add(i.SqlServer);
+                names.Add(i.Database);
+                names.Add(i.Name);
+                names.AddRange(i.PxeServers);
+                foreach (string x in new string[] { i.SiteServer, i.Provider, i.SqlServer }) if (!string.IsNullOrEmpty(x) && x.IndexOf('.') > 0) names.Add(x.Substring(x.IndexOf('.') + 1));
+            }
+            if (data != null) foreach (Machine mc in data.Machines) names.Add(mc.Name);
+            names.Add(Prefs.Get(RunAs.UserPref, null));
+            return ProblemReport.Make(Cli.Version, Program.OsVersion(), Feedback.ModeName(demo, site != null ? site.Info.SiteCode : null), ProblemLog.Recent(), names);
+        }
+
+        void OpenProblem()
+        {
+            using (ProblemDialog d = new ProblemDialog(theme, MakeProblem())) d.ShowDialog(this);
         }
 
         void About()

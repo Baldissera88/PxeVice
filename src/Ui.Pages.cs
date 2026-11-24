@@ -589,6 +589,7 @@ namespace PxeVice
             Controls.Add(footer);
             HandleCreated += delegate { Draw.TitleBar(Handle, theme); };
             HookWheel(scroll);
+            DialogFit.Keep(this);
         }
 
         public void Retheme(Theme t)

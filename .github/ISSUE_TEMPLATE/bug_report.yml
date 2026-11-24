@@ -1,0 +1,60 @@
+name: Bug report
+description: Something in PxeVice does not work as it should.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help > Report a problem in PxeVice fills in this form for you. Do not put site, server, machine or user names, MAC addresses or links here unless they are needed. Attach SMSPXE.log lines yourself, after you have looked through them.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What PxeVice did, or the message it showed.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: false
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to repeat it
+      placeholder: |
+        1. Select the machine
+        2. ...
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: PxeVice version
+      placeholder: "0.8.0"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 Enterprise 24H2, build 26100.2605"
+    validations:
+      required: false
+  - type: input
+    id: mode
+    attributes:
+      label: What was open
+      description: The demo data, or a ConfigMgr site.
+    validations:
+      required: false
+  - type: textarea
+    id: errors
+    attributes:
+      label: Last errors in PxeVice
+      description: The errors PxeVice showed in this session, newest first.
+      render: text
+    validations:
+      required: false

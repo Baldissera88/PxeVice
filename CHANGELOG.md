@@ -1,5 +1,16 @@
 # Changelog
 
+## PxeVice 0.8.0
+
+24 November 2026.
+
+First step of making PxeVice and TrackVice look and work alike.
+
+- **Help menu** in the header, as in TrackVice: **Report a problem**, **Suggest a feature**, **Tell the author you use PxeVice**, PxeVice on GitHub and About (F1). Each page fills in a GitHub issue or an e-mail, shows exactly what goes along, and sends nothing itself. In the errors PxeVice adds, site, server, machine and user names, MAC addresses, IDs and links are replaced with `<name>`, `<mac>`, `<id>` and `<link>`
+- **A narrow window works**: the header buttons that do not fit fold into a **More** menu, the window can be made smaller, and dialogs are kept inside the screen at 125 % and 150 % scaling
+- GitHub issue forms for a bug and a feature, with the same fields as the pages
+- Screenshot run for the README and for checking changes: `--shot <file>`, `--page <name>`, `--size <W>x<H>`, `--select <machine>`, `--tab <n>`
+
 ## PxeVice 0.7.0
 
 24 November 2026.

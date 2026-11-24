@@ -6,8 +6,17 @@ namespace PxeVice
     using System.Runtime.InteropServices;
     using System.Windows.Forms;
 
+    // What a screenshot run asks for: --shot <file>, --page <name>, --size <W>x<H>, --select <machine> and --tab <n>.
+    public sealed class StartOptions
+    {
+        public string Shot, Page, Select;
+        public int Tab = -1;
+        public System.Drawing.Size Size;
+    }
+
     public static class Program
     {
+        public static readonly StartOptions Start = new StartOptions();
         public const string Developer = Cli.Developer;
         // A theme given with --theme for this run only, or null.
         public static string ThemeOverride;
@@ -130,6 +139,16 @@ namespace PxeVice
                     {
                         string want = args[++i];
                         if (Palettes.Find(want) != null || string.Equals(want, "system", StringComparison.OrdinalIgnoreCase)) ThemeOverride = want;
+                    }
+                    else if (low == "--shot" && i + 1 < args.Length) Start.Shot = args[++i];
+                    else if (low == "--page" && i + 1 < args.Length) Start.Page = args[++i];
+                    else if (low == "--select" && i + 1 < args.Length) Start.Select = args[++i];
+                    else if (low == "--tab" && i + 1 < args.Length) int.TryParse(args[++i], out Start.Tab);
+                    else if (low == "--size" && i + 1 < args.Length)
+                    {
+                        string[] wh = args[++i].Split('x');
+                        int w, h;
+                        if (wh.Length == 2 && int.TryParse(wh[0], out w) && int.TryParse(wh[1], out h)) Start.Size = new System.Drawing.Size(w, h);
                     }
                     else rest.Add(args[i]);
                 }

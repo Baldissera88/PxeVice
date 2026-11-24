@@ -114,3 +114,11 @@ A checklist for checking PxeVice against a real Configuration Manager site. Use 
 - Why it starts from the network, What stops it, Who can fix it and What to do are written without ConfigMgr words
 - How the PXE boot went shows OK and STOPPED lines that end where the boot stopped
 - Copy for the ticket and Export start with the same text
+
+## Help and narrow windows
+
+- Help > Report a problem: type text, the page lists version, Windows, what was open and the last errors, with names, MAC addresses and links replaced; Open a GitHub issue opens the browser with the form filled in; Open an e-mail opens the mail program, or copies the text when there is none
+- Suggest a feature and Tell the author open their pages and links the same way
+- Make the window narrow (about 700 px wide): Watch, Site and others fold into More, and More opens a menu with them
+- At 125 % and 150 % scaling every dialog fits on the screen
+- `PxeVice.exe --demo --shot out.png --page help-problem --size 1100x700` saves a picture of the page and closes

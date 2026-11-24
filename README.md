@@ -131,6 +131,12 @@ Install is offered when the release has `PxeVice.msi` (or `PxeVice.exe`) and a c
 
 Every change, and every next PXE boot after a reset, is written to `%LOCALAPPDATA%\PxeVice\PxeVice.log` in the CMTrace format, with who made it. **Open the activity log in LogVice** on the Activity tab opens it.
 
+## Help
+
+The **Help** button has **Report a problem**, **Suggest a feature**, **Tell the author you use PxeVice**, PxeVice on GitHub and About. The first three open a GitHub issue, a GitHub discussion or an e-mail, filled in with what is on the page. You look it through and send it: PxeVice sends nothing by itself. What PxeVice adds is the version, Windows, what was open and the last errors, with site, server, machine and user names, MAC addresses, IDs and links replaced by `<name>`, `<mac>`, `<id>` and `<link>`.
+
+In a narrow window the buttons that do not fit fold into **More**.
+
 ## Themes
 
 Settings shows seven choices as tiles: **System** (follows the Windows app mode), **Light**, **Dark**, **Vice** (the default), and **Terminal**, **Amber** and **Synthwave**. Terminal and Amber have square corners and show counts in a monospace font. They are the same themes as in TrackVice. The Theme button in the toolbar steps through them, and `--theme <name>` starts PxeVice with one for that run only.
@@ -147,7 +153,7 @@ Settings shows seven choices as tiles: **System** (follows the Windows app mode)
 
 ## Try it without a site
 
-`PxeVice.exe --demo` opens a site with typical cases: a machine with a leftover Unknown record after a failed task sequence, a device whose required deployment was already offered, a kiosk PC whose deployment is for clients only, a spare PC with a firmware SMBIOS GUID that many machines share, a deleted device with its flag, and a USB network adapter. Its SMSPXE.log lines are read through the same code as a real log, and a machine that is reset PXE boots again after a few seconds. The screenshots in this README come from it.
+`PxeVice.exe --demo` opens a site with typical cases: a machine with a leftover Unknown record after a failed task sequence, a device whose required deployment was already offered, a kiosk PC whose deployment is for clients only, a spare PC with a firmware SMBIOS GUID that many machines share, a deleted device with its flag, and a USB network adapter. Its SMSPXE.log lines are read through the same code as a real log, and a machine that is reset PXE boots again after a few seconds. The screenshots in this README come from it. `--shot <file> --page <name> --size <W>x<H> --select <machine> --tab <n>` saves a picture of the window or of a page and closes (pages: `about`, `settings`, `help`, `help-problem`, `help-feature`, `help-author`).
 
 ## Command line
 
